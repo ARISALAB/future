@@ -14736,6 +14736,7 @@ var require_analyzer = __commonJS({
       "use strict";
       var CATS = [
         { id: "clarity", name: "\u03A3\u03B1\u03C6\u03AE\u03BD\u03B5\u03B9\u03B1" },
+        { id: "copy", name: "\u03A0\u03BF\u03B9\u03CC\u03C4\u03B7\u03C4\u03B1 \u03BA\u03B5\u03B9\u03BC\u03AD\u03BD\u03BF\u03C5" },
         { id: "trust", name: "\u0395\u03BC\u03C0\u03B9\u03C3\u03C4\u03BF\u03C3\u03CD\u03BD\u03B7" },
         { id: "find", name: "\u0395\u03CD\u03C1\u03B5\u03C3\u03B7 \u03C3\u03C4\u03B7 Google" },
         { id: "convert", name: "\u0395\u03C0\u03B9\u03BA\u03BF\u03B9\u03BD\u03C9\u03BD\u03AF\u03B1 \u03BA\u03B1\u03B9 \u03B5\u03BD\u03AD\u03C1\u03B3\u03B5\u03B9\u03B1" },
@@ -14786,6 +14787,30 @@ var require_analyzer = __commonJS({
       }
       function plural(n, one, many) {
         return n === 1 ? one : many;
+      }
+      function normGr(s) {
+        return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ς/g, "\u03C3");
+      }
+      var CLICHES = [
+        [/απαραμιλλ\w*/g, "\u03B1\u03C0\u03B1\u03C1\u03AC\u03BC\u03B9\u03BB\u03BB\u03BF\u03C2"],
+        [/καινοτομ\w*/g, "\u03BA\u03B1\u03B9\u03BD\u03BF\u03C4\u03CC\u03BC\u03BF\u03C2/\u03BA\u03B1\u03B9\u03BD\u03BF\u03C4\u03BF\u03BC\u03AF\u03B1"],
+        [/ολιστικ\w*/g, "\u03BF\u03BB\u03B9\u03C3\u03C4\u03B9\u03BA\u03AE"],
+        [/κορυφαι\w*/g, "\u03BA\u03BF\u03C1\u03C5\u03C6\u03B1\u03AF\u03BF\u03C2"],
+        [/υψηλ\w+\s+ποιοτητ\w+/g, "\u03C5\u03C8\u03B7\u03BB\u03AE \u03C0\u03BF\u03B9\u03CC\u03C4\u03B7\u03C4\u03B1"],
+        [/υψηλου\s+επιπεδου/g, "\u03C5\u03C8\u03B7\u03BB\u03BF\u03CD \u03B5\u03C0\u03B9\u03C0\u03AD\u03B4\u03BF\u03C5"],
+        [/εξατομικευμεν\w*/g, "\u03B5\u03BE\u03B1\u03C4\u03BF\u03BC\u03B9\u03BA\u03B5\u03C5\u03BC\u03AD\u03BD\u03BF\u03C2"],
+        [/στοχευμεν\w+\s+λυσ\w+/g, "\u03C3\u03C4\u03BF\u03C7\u03B5\u03C5\u03BC\u03AD\u03BD\u03B5\u03C2 \u03BB\u03CD\u03C3\u03B5\u03B9\u03C2"],
+        [/προσθετη\s+αξια|εξαιρετικη\s+αξια/g, "\u03C0\u03C1\u03BF\u03C3\u03C4\u03B9\u03B8\u03AD\u03BC\u03B5\u03BD\u03B7 \u03B1\u03BE\u03AF\u03B1"],
+        [/μοναδικ\w+\s+(?:εμπειρι\w+|λυσ\w+)/g, "\u03BC\u03BF\u03BD\u03B1\u03B4\u03B9\u03BA\u03AE \u03B5\u03BC\u03C0\u03B5\u03B9\u03C1\u03AF\u03B1"],
+        [/πιστευουμε\s+στην?\s/g, "\u03C0\u03B9\u03C3\u03C4\u03B5\u03CD\u03BF\u03C5\u03BC\u03B5 \u03C3\u03C4\u03B7\u03BD\u2026"],
+        [/βιωσιμη\s+αναπτυξη/g, "\u03B2\u03B9\u03CE\u03C3\u03B9\u03BC\u03B7 \u03B1\u03BD\u03AC\u03C0\u03C4\u03C5\u03BE\u03B7"],
+        [/αριστεια/g, "\u03B1\u03C1\u03B9\u03C3\u03C4\u03B5\u03AF\u03B1"],
+        [/εξαιρετικ\w+\s+υπηρεσι\w+/g, "\u03B5\u03BE\u03B1\u03B9\u03C1\u03B5\u03C4\u03B9\u03BA\u03AD\u03C2 \u03C5\u03C0\u03B7\u03C1\u03B5\u03C3\u03AF\u03B5\u03C2"],
+        [/διαρκ\w+\s+αντικτυπ\w+/g, "\u03B4\u03B9\u03B1\u03C1\u03BA\u03AE\u03C2 \u03B1\u03BD\u03C4\u03AF\u03BA\u03C4\u03C5\u03C0\u03BF\u03C2"],
+        [/cutting[- ]edge|state[- ]of[- ]the[- ]art|world[- ]class|best[- ]in[- ]class|innovative\s+solutions|unparalleled|synerg\w+|seamless|next[- ]level|one[- ]stop[- ]shop|passionate\s+team|we\s+believe\s+in|leading\s+provider|tailored\s+solutions|holistic/g, "\u03B1\u03B3\u03B3\u03BB\u03B9\u03BA\u03AC \u03BA\u03BB\u03B9\u03C3\u03AD"]
+      ];
+      function wordsOf(t) {
+        return normGr(t).match(new RegExp("\\p{L}+", "gu")) || [];
       }
       function extract(doc, ctx) {
         ctx = ctx || {};
@@ -14869,6 +14894,9 @@ var require_analyzer = __commonJS({
           });
           text = clean(clone.textContent);
         }
+        var pText = clean(q("p").map(function(e) {
+          return clean(e.textContent);
+        }).join(" "));
         var words = text ? text.split(/\s+/).filter(function(w) {
           return len(w) > 1;
         }).length : 0;
@@ -14995,6 +15023,7 @@ var require_analyzer = __commonJS({
           h1,
           h2,
           text,
+          pText,
           words,
           greekRatio: greek + latin ? greek / (greek + latin) : 0,
           paras,
@@ -15146,6 +15175,131 @@ var require_analyzer = __commonJS({
             if (h.greekRatio > 0.5 && !isEl) return { s: 0.5, ev: ['lang="' + h.lang + '" \u03B1\u03BB\u03BB\u03AC \u03C4\u03BF \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF \u03B5\u03AF\u03BD\u03B1\u03B9 \u03B5\u03BB\u03BB\u03B7\u03BD\u03B9\u03BA\u03CC.'] };
             if (h.greekRatio < 0.2 && isEl && h.words > 30) return { s: 0.5, ev: ['lang="el" \u03B1\u03BB\u03BB\u03AC \u03C4\u03BF \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF \u03B5\u03AF\u03BD\u03B1\u03B9 \u03BA\u03C5\u03C1\u03AF\u03C9\u03C2 \u03B1\u03B3\u03B3\u03BB\u03B9\u03BA\u03CC.'] };
             return { s: 1, ev: ['lang="' + h.lang + '"'] };
+          }
+        },
+        // --- Ποιότητα κειμένου (κανόνες, χωρίς AI) ---
+        {
+          id: "cliches",
+          cat: "copy",
+          w: 3,
+          name: "\u0394\u03B9\u03B1\u03C4\u03CD\u03C0\u03C9\u03C3\u03B7 \u03C7\u03C9\u03C1\u03AF\u03C2 \u03BA\u03BF\u03B9\u03BD\u03BF\u03C4\u03BF\u03C0\u03AF\u03B5\u03C2",
+          why: "\u03A6\u03C1\u03AC\u03C3\u03B5\u03B9\u03C2 \u03CC\u03C0\u03C9\u03C2 \xAB\u03B1\u03C0\u03B1\u03C1\u03AC\u03BC\u03B9\u03BB\u03BB\u03B7 \u03B5\u03BE\u03B5\u03B9\u03B4\u03AF\u03BA\u03B5\u03C5\u03C3\u03B7\xBB \u03AE \xAB\u03BA\u03B1\u03B9\u03BD\u03BF\u03C4\u03CC\u03BC\u03B5\u03C2 \u03BB\u03CD\u03C3\u03B5\u03B9\u03C2\xBB \u03C5\u03C0\u03AC\u03C1\u03C7\u03BF\u03C5\u03BD \u03C3\u03B5 \u03C7\u03B9\u03BB\u03B9\u03AC\u03B4\u03B5\u03C2 sites \u03BA\u03B1\u03B9 \u03B4\u03B5\u03BD \u03C0\u03B5\u03AF\u03B8\u03BF\u03C5\u03BD \u03BA\u03B1\u03BD\u03AD\u03BD\u03B1\u03BD.",
+          fix: "\u0391\u03BD\u03C4\u03B9\u03BA\u03B1\u03C4\u03AC\u03C3\u03C4\u03B7\u03C3\u03AD \u03C4\u03B5\u03C2 \u03BC\u03B5 \u03BA\u03AC\u03C4\u03B9 \u03C3\u03C5\u03B3\u03BA\u03B5\u03BA\u03C1\u03B9\u03BC\u03AD\u03BD\u03BF: \u03C4\u03B9 \u03B1\u03BA\u03C1\u03B9\u03B2\u03CE\u03C2 \u03BA\u03AC\u03BD\u03B5\u03B9\u03C2, \u03B3\u03B9\u03B1 \u03C0\u03BF\u03B9\u03BF\u03BD \u03BA\u03B1\u03B9 \u03BC\u03B5 \u03C0\u03BF\u03B9\u03BF \u03B1\u03C0\u03BF\u03C4\u03AD\u03BB\u03B5\u03C3\u03BC\u03B1.",
+          run: function(S) {
+            var t = normGr(S.union.pText || S.union.text), w = wordsOf(t).length;
+            if (w < 40) return null;
+            var found = [], total = 0;
+            CLICHES.forEach(function(c) {
+              var m = t.match(c[0]);
+              if (m) {
+                total += m.length;
+                found.push(c[1] + " (\xD7" + m.length + ")");
+              }
+            });
+            var dens = total / (w / 100);
+            var s = total === 0 ? 1 : total <= 2 && dens < 1.2 ? 0.8 : total <= 4 ? 0.5 : 0.2;
+            return { s, ev: total ? ["\u0392\u03C1\u03AD\u03B8\u03B7\u03BA\u03B1\u03BD " + total + " \u03BA\u03BF\u03B9\u03BD\u03BF\u03C4\u03BF\u03C0\u03AF\u03B5\u03C2: " + found.slice(0, 5).join(", ") + "."] : ["\u0394\u03B5\u03BD \u03B2\u03C1\u03AD\u03B8\u03B7\u03BA\u03B1\u03BD \u03C3\u03C5\u03BD\u03B7\u03B8\u03B9\u03C3\u03BC\u03AD\u03BD\u03B5\u03C2 \u03BA\u03BF\u03B9\u03BD\u03BF\u03C4\u03BF\u03C0\u03AF\u03B5\u03C2."] };
+          }
+        },
+        {
+          id: "voice",
+          cat: "copy",
+          w: 2,
+          name: "\u039C\u03B9\u03BB\u03AC\u03C2 \u03B3\u03B9\u03B1 \u03C4\u03BF\u03BD \u03C0\u03B5\u03BB\u03AC\u03C4\u03B7 \u03AE \u03B3\u03B9\u03B1 \u03C3\u03AD\u03BD\u03B1;",
+          why: "\u03A4\u03B1 \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03B1 \u03C0\u03BF\u03C5 \u03BC\u03B9\u03BB\u03BF\u03CD\u03BD \u03BC\u03CC\u03BD\u03BF \u03B3\u03B9\u03B1 \u03C4\u03BF \xAB\u03B5\u03BC\u03B5\u03AF\u03C2\xBB \u03B4\u03B5\u03BD \u03B1\u03C0\u03B1\u03BD\u03C4\u03BF\u03CD\u03BD \u03C3\u03C4\u03BF \u03B5\u03C1\u03CE\u03C4\u03B7\u03BC\u03B1 \u03C4\u03BF\u03C5 \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B7: \xAB\u03C4\u03B9 \u03BA\u03B5\u03C1\u03B4\u03AF\u03B6\u03C9 \u03B5\u03B3\u03CE;\xBB.",
+          fix: "\u0393\u03CD\u03C1\u03BD\u03B1 \u03C4\u03B9\u03C2 \u03C0\u03C1\u03BF\u03C4\u03AC\u03C3\u03B5\u03B9\u03C2 \u03C0\u03C1\u03BF\u03C2 \u03C4\u03BF\u03BD \u03C0\u03B5\u03BB\u03AC\u03C4\u03B7: \xAB\u03B8\u03B1 \u03BC\u03B5\u03B9\u03CE\u03C3\u03B5\u03B9\u03C2 \u03C4\u03BF \u03BA\u03CC\u03C3\u03C4\u03BF\u03C2 \u03C3\u03BF\u03C5\xBB, \u03CC\u03C7\u03B9 \xAB\u03C0\u03B9\u03C3\u03C4\u03B5\u03CD\u03BF\u03C5\u03BC\u03B5 \u03C3\u03C4\u03B7\u03BD \u03B1\u03C1\u03B9\u03C3\u03C4\u03B5\u03AF\u03B1\xBB.",
+          run: function(S) {
+            var ws = wordsOf(S.union.pText || S.union.text), we = 0, you = 0;
+            ws.forEach(function(x) {
+              if (/^(εμεισ|μασ|ημων|we|our|us)$/.test(x) || /(ουμε|αμε)$/.test(x) && x.length > 6) we++;
+              else if (/^(εσυ|εσεισ|σου|σασ|εσενα|you|your|yours)$/.test(x)) you++;
+            });
+            if (we + you < 4) return null;
+            var r = we / (we + you);
+            var s = r <= 0.5 ? 1 : r <= 0.65 ? 0.8 : r <= 0.8 ? 0.5 : 0.25;
+            return { s, ev: ["\u039B\u03AD\u03BE\u03B5\u03B9\u03C2 \u03B3\u03B9\u03B1 \u03C4\u03BF \xAB\u03B5\u03BC\u03B5\u03AF\u03C2\xBB: " + we + ". \u039B\u03AD\u03BE\u03B5\u03B9\u03C2 \u03B3\u03B9\u03B1 \u03C4\u03BF \xAB\u03B5\u03C3\u03CD/\u03B5\u03C3\u03B5\u03AF\u03C2\xBB: " + you + "."] };
+          }
+        },
+        {
+          id: "sentences",
+          cat: "copy",
+          w: 2,
+          name: "\u039C\u03AE\u03BA\u03BF\u03C2 \u03C0\u03C1\u03BF\u03C4\u03AC\u03C3\u03B5\u03C9\u03BD",
+          why: "\u03A0\u03BF\u03BB\u03CD \u03BC\u03B5\u03B3\u03AC\u03BB\u03B5\u03C2 \u03C0\u03C1\u03BF\u03C4\u03AC\u03C3\u03B5\u03B9\u03C2 \u03BA\u03BF\u03C5\u03C1\u03AC\u03B6\u03BF\u03C5\u03BD \u03BA\u03B1\u03B9 \u03BF \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B7\u03C2 \u03C3\u03C4\u03B1\u03BC\u03B1\u03C4\u03AC \u03BD\u03B1 \u03B4\u03B9\u03B1\u03B2\u03AC\u03B6\u03B5\u03B9.",
+          fix: "\u03A3\u03C0\u03AC\u03C3\u03B5 \u03C4\u03B9\u03C2 \u03C0\u03C1\u03BF\u03C4\u03AC\u03C3\u03B5\u03B9\u03C2 \u03C0\u03AC\u03BD\u03C9 \u03B1\u03C0\u03CC 30 \u03BB\u03AD\u03BE\u03B5\u03B9\u03C2 \u03C3\u03B5 \u03B4\u03CD\u03BF. \u0388\u03BD\u03B1 \u03BD\u03CC\u03B7\u03BC\u03B1 \u03B1\u03BD\u03AC \u03C0\u03C1\u03CC\u03C4\u03B1\u03C3\u03B7.",
+          run: function(S) {
+            var t = S.union.pText || "";
+            var sen = t.split(/[.!?…;·]+\s+/).map(function(x) {
+              return wordsOf(x).length;
+            }).filter(function(n) {
+              return n >= 3;
+            });
+            var total = sen.reduce(function(a, b) {
+              return a + b;
+            }, 0);
+            if (sen.length < 3 || total < 60) return null;
+            var avg = total / sen.length, longN = sen.filter(function(n) {
+              return n > 35;
+            }).length;
+            var s = avg <= 20 ? 1 : avg <= 26 ? 0.8 : avg <= 32 ? 0.5 : 0.25;
+            if (longN / sen.length > 0.25) s = Math.min(s, 0.5);
+            return { s, ev: ["\u039C\u03AD\u03C3\u03B7 \u03C0\u03C1\u03CC\u03C4\u03B1\u03C3\u03B7: " + Math.round(avg) + " \u03BB\u03AD\u03BE\u03B5\u03B9\u03C2." + (longN ? " " + longN + " " + (longN === 1 ? "\u03C0\u03C1\u03CC\u03C4\u03B1\u03C3\u03B7 \u03AD\u03C7\u03B5\u03B9" : "\u03C0\u03C1\u03BF\u03C4\u03AC\u03C3\u03B5\u03B9\u03C2 \u03AD\u03C7\u03BF\u03C5\u03BD") + " \u03C0\u03AC\u03BD\u03C9 \u03B1\u03C0\u03CC 35 \u03BB\u03AD\u03BE\u03B5\u03B9\u03C2." : "")] };
+          }
+        },
+        {
+          id: "specifics",
+          cat: "copy",
+          w: 2,
+          name: "\u03A3\u03C5\u03B3\u03BA\u03B5\u03BA\u03C1\u03B9\u03BC\u03AD\u03BD\u03B1 \u03C3\u03C4\u03BF\u03B9\u03C7\u03B5\u03AF\u03B1",
+          why: "\u0391\u03C1\u03B9\u03B8\u03BC\u03BF\u03AF, \u03C7\u03C1\u03CC\u03BD\u03B9\u03B1 \u03B5\u03BC\u03C0\u03B5\u03B9\u03C1\u03AF\u03B1\u03C2, \u03C0\u03BF\u03C3\u03BF\u03C3\u03C4\u03AC \u03BA\u03B1\u03B9 \u03C0\u03B1\u03C1\u03B1\u03B4\u03B5\u03AF\u03B3\u03BC\u03B1\u03C4\u03B1 \u03BA\u03AC\u03BD\u03BF\u03C5\u03BD \u03AD\u03BD\u03B1\u03BD \u03B9\u03C3\u03C7\u03C5\u03C1\u03B9\u03C3\u03BC\u03CC \u03C0\u03B9\u03C3\u03C4\u03B5\u03C5\u03C4\u03CC.",
+          fix: "\u03A0\u03C1\u03CC\u03C3\u03B8\u03B5\u03C3\u03B5 2\u20133 \u03C3\u03C5\u03B3\u03BA\u03B5\u03BA\u03C1\u03B9\u03BC\u03AD\u03BD\u03B1 \u03C3\u03C4\u03BF\u03B9\u03C7\u03B5\u03AF\u03B1: \u03C0\u03CC\u03C3\u03BF\u03B9 \u03C0\u03B5\u03BB\u03AC\u03C4\u03B5\u03C2, \u03C0\u03CC\u03C3\u03B1 \u03AD\u03C1\u03B3\u03B1, \u03C3\u03B5 \u03C0\u03CC\u03C3\u03BF \u03C7\u03C1\u03CC\u03BD\u03BF, \u03BC\u03B5 \u03C4\u03B9 \u03B1\u03C0\u03BF\u03C4\u03AD\u03BB\u03B5\u03C3\u03BC\u03B1.",
+          run: function(S) {
+            var t = S.union.pText || "";
+            if (wordsOf(t).length < 80) return null;
+            var c = t.replace(/(?:©|copyright)[^.]{0,50}/gi, " ").replace(/(?:\+?30[\s.-]?)?(?:2\d{2}[\s.-]?\d{3}[\s.-]?\d{4}|69\d[\s.-]?\d{3}[\s.-]?\d{4}|2\d{9}|69\d{8})/g, " ").replace(/\b\d{3}\s?\d{2}\b/g, " ");
+            var nums = (c.match(/\d[\d.,]*\s?(?:%|€|\+)?/g) || []).map(function(x) {
+              return x.trim();
+            }).filter(Boolean);
+            var uniqN = uniq(nums);
+            var s = uniqN.length >= 3 ? 1 : uniqN.length === 2 ? 0.7 : uniqN.length === 1 ? 0.5 : 0.25;
+            return { s, ev: uniqN.length ? ["\u0392\u03C1\u03AD\u03B8\u03B7\u03BA\u03B1\u03BD " + uniqN.length + " \u03B1\u03C1\u03B9\u03B8\u03BC\u03B7\u03C4\u03B9\u03BA\u03AC \u03C3\u03C4\u03BF\u03B9\u03C7\u03B5\u03AF\u03B1 (\u03C0.\u03C7. " + uniqN.slice(0, 3).join(", ") + ")."] : ["\u03A4\u03BF \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF \u03B4\u03B5\u03BD \u03AD\u03C7\u03B5\u03B9 \u03B1\u03C1\u03B9\u03B8\u03BC\u03BF\u03CD\u03C2, \u03C0\u03BF\u03C3\u03BF\u03C3\u03C4\u03AC \u03AE \u03C7\u03C1\u03CC\u03BD\u03B9\u03B1 \u03B5\u03BC\u03C0\u03B5\u03B9\u03C1\u03AF\u03B1\u03C2."] };
+          }
+        },
+        {
+          id: "repeat",
+          cat: "copy",
+          w: 2,
+          name: "\u039A\u03B1\u03B8\u03B1\u03C1\u03CC\u03C4\u03B7\u03C4\u03B1 \u03BA\u03B5\u03B9\u03BC\u03AD\u03BD\u03BF\u03C5 (\u03B5\u03C0\u03B1\u03BD\u03B1\u03BB\u03AE\u03C8\u03B5\u03B9\u03C2, \u03BC\u03B5\u03C4\u03AC\u03C6\u03C1\u03B1\u03C3\u03B7)",
+          why: "\u039F\u03B9 \u03BB\u03AD\u03BE\u03B5\u03B9\u03C2 \u03C0\u03BF\u03C5 \u03B5\u03C0\u03B1\u03BD\u03B1\u03BB\u03B1\u03BC\u03B2\u03AC\u03BD\u03BF\u03BD\u03C4\u03B1\u03B9 \u03C3\u03C5\u03BD\u03B5\u03C7\u03CE\u03C2 \u03AE \u03B3\u03C1\u03AC\u03C6\u03BF\u03BD\u03C4\u03B1\u03B9 \u03B4\u03CD\u03BF \u03C6\u03BF\u03C1\u03AD\u03C2 (\xAB\u03B5\u03BC\u03C0\u03CC\u03B4\u03B9\u03B1 \u03BA\u03B1\u03B9 \u03B5\u03BC\u03C0\u03CC\u03B4\u03B9\u03B1\xBB) \u03B4\u03B5\u03AF\u03C7\u03BD\u03BF\u03C5\u03BD \u03B1\u03C5\u03C4\u03CC\u03BC\u03B1\u03C4\u03B7 \u03BC\u03B5\u03C4\u03AC\u03C6\u03C1\u03B1\u03C3\u03B7 \u03AE \u03C0\u03C1\u03BF\u03C7\u03B5\u03B9\u03C1\u03CC\u03C4\u03B7\u03C4\u03B1.",
+          fix: "\u0394\u03B9\u03AC\u03B2\u03B1\u03C3\u03B5 \u03BE\u03B1\u03BD\u03AC \u03C4\u03B1 \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03B1 \u03C6\u03C9\u03BD\u03B1\u03C7\u03C4\u03AC \u03BA\u03B1\u03B9 \u03B4\u03B9\u03CC\u03C1\u03B8\u03C9\u03C3\u03B5 \u03CC,\u03C4\u03B9 \u03B1\u03BA\u03BF\u03CD\u03B3\u03B5\u03C4\u03B1\u03B9 \u03C0\u03B5\u03C1\u03AF\u03B5\u03C1\u03B3\u03BF. \u039C\u03B5\u03AF\u03C9\u03C3\u03B5 \u03C4\u03B9\u03C2 \u03BB\u03AF\u03C3\u03C4\u03B5\u03C2 \u03C0\u03BF\u03C5 \u03B5\u03C0\u03B1\u03BD\u03B1\u03BB\u03B1\u03BC\u03B2\u03AC\u03BD\u03BF\u03BD\u03C4\u03B1\u03B9 \u03C3\u03B5 \u03BA\u03AC\u03B8\u03B5 \u03B5\u03C1\u03CE\u03C4\u03B7\u03C3\u03B7.",
+          run: function(S) {
+            var ev = [], pen = 0, any = false;
+            S.pages.forEach(function(p) {
+              var t = normGr(p.pText || "");
+              if (wordsOf(t).length < 40) return;
+              any = true;
+              var dbl = t.match(new RegExp("(?<![\\p{L}])(\\p{L}{4,})\\s+(?:\u03BA\u03B1\u03B9\\s+)?\\1(?![\\p{L}])", "gu"));
+              if (dbl && dbl.length) {
+                pen += 0.4;
+                ev.push("\u0394\u03B9\u03C0\u03BB\u03AE \u03BB\u03AD\u03BE\u03B7: \xAB" + short(dbl[0], 40) + "\xBB.");
+              }
+              var ws = t.match(new RegExp("\\p{L}{3,}", "gu")) || [], cnt = {};
+              for (var i = 0; i < ws.length - 2; i++) {
+                var g = ws[i] + " " + ws[i + 1] + " " + ws[i + 2];
+                cnt[g] = (cnt[g] || 0) + 1;
+              }
+              var rep = Object.keys(cnt).filter(function(k) {
+                return cnt[k] >= 4;
+              }).sort(function(a, b) {
+                return cnt[b] - cnt[a];
+              });
+              if (rep.length) {
+                pen += 0.5;
+                ev.push("\u0397 \u03C6\u03C1\u03AC\u03C3\u03B7 \xAB" + short(rep[0], 40) + "\xBB \u03B5\u03C0\u03B1\u03BD\u03B1\u03BB\u03B1\u03BC\u03B2\u03AC\u03BD\u03B5\u03C4\u03B1\u03B9 " + cnt[rep[0]] + " \u03C6\u03BF\u03C1\u03AD\u03C2 \u03C3\u03B5 \u03BC\u03AF\u03B1 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1.");
+              }
+            });
+            if (!any) return null;
+            return { s: clamp(1 - pen, 0, 1), ev: ev.length ? uniq(ev).slice(0, 3) : ["\u0394\u03B5\u03BD \u03B2\u03C1\u03AD\u03B8\u03B7\u03BA\u03B1\u03BD \u03B4\u03B9\u03C0\u03BB\u03AD\u03C2 \u03BB\u03AD\u03BE\u03B5\u03B9\u03C2 \u03AE \u03C5\u03C0\u03B5\u03C1\u03B2\u03BF\u03BB\u03B9\u03BA\u03AD\u03C2 \u03B5\u03C0\u03B1\u03BD\u03B1\u03BB\u03AE\u03C8\u03B5\u03B9\u03C2."] };
           }
         },
         // --- Εμπιστοσύνη ---
@@ -15583,7 +15737,7 @@ var require_analyzer = __commonJS({
           id: "placeholders",
           cat: "tech",
           w: 4,
-          name: "\u03A3\u03C0\u03B1\u03C3\u03BC\u03AD\u03BD\u03BF \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF \u03AE placeholder",
+          name: "\u03A7\u03C9\u03C1\u03AF\u03C2 \u03C3\u03C0\u03B1\u03C3\u03BC\u03AD\u03BD\u03BF \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF",
           why: "\u039A\u03B5\u03AF\u03BC\u03B5\u03BD\u03B1 \u03CC\u03C0\u03C9\u03C2 \xAB[[cookie_link]]\xBB \u03AE \xAB{title}\xBB \u03B4\u03B5\u03AF\u03C7\u03BD\u03BF\u03C5\u03BD \u03CC\u03C4\u03B9 \u03BA\u03AC\u03C4\u03B9 \u03B4\u03B5\u03BD \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03B5\u03AF \u03BA\u03B1\u03B9 \u03C7\u03B1\u03BB\u03BF\u03CD\u03BD \u03C4\u03B7\u03BD \u03B5\u03BD\u03C4\u03CD\u03C0\u03C9\u03C3\u03B7.",
           fix: "\u0392\u03C1\u03B5\u03C2 \u03C4\u03BF \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF \u03C3\u03C4\u03B7 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1 \u03BA\u03B1\u03B9 \u03B1\u03BD\u03C4\u03B9\u03BA\u03B1\u03C4\u03AC\u03C3\u03C4\u03B7\u03C3\u03AD \u03C4\u03BF \u03BC\u03B5 \u03C4\u03BF\u03BD \u03C3\u03C9\u03C3\u03C4\u03CC \u03C3\u03CD\u03BD\u03B4\u03B5\u03C3\u03BC\u03BF \u03AE \u03C0\u03B5\u03C1\u03B9\u03B5\u03C7\u03CC\u03BC\u03B5\u03BD\u03BF.",
           run: function(S) {
@@ -15645,7 +15799,7 @@ var require_analyzer = __commonJS({
       function buildSite(pages, ctx) {
         ctx = ctx || {};
         var home = pages[0];
-        var union = { heads: "", phones: [], emails: [], hasAddress: false, telLinks: 0, mailLinks: 0, social: [], socialBroken: [], privacyLinks: [], termsLinks: [], forms: [], placeholders: [], copyYears: [], text: "", covid: false, lastDate: null, ratingSchema: false, reviewWidget: false };
+        var union = { pText: "", heads: "", phones: [], emails: [], hasAddress: false, telLinks: 0, mailLinks: 0, social: [], socialBroken: [], privacyLinks: [], termsLinks: [], forms: [], placeholders: [], copyYears: [], text: "", covid: false, lastDate: null, ratingSchema: false, reviewWidget: false };
         pages.forEach(function(p) {
           union.phones = union.phones.concat(p.phones);
           union.emails = union.emails.concat(p.emails);
@@ -15660,6 +15814,7 @@ var require_analyzer = __commonJS({
           union.placeholders = union.placeholders.concat(p.placeholders);
           union.copyYears = union.copyYears.concat(p.copyYears);
           union.text += " " + p.text;
+          union.pText += " " + (p.pText || "");
           union.heads += " " + p.h1.join(" ") + " " + p.h2.join(" ") + " " + p.links.map(function(l) {
             return l.name;
           }).join(" ");
@@ -15753,7 +15908,7 @@ var require_analyzer = __commonJS({
         return report;
       }
       function makeSummary(score, pos, neg, potential) {
-        var TRIVIAL = { noindex: 1, https: 1, viewport: 1, perf: 1, response: 1, headings: 1, lang: 1, canonical: 1 };
+        var TRIVIAL = { noindex: 1, https: 1, viewport: 1, perf: 1, response: 1, headings: 1, lang: 1, canonical: 1, repeat: 1, placeholders: 1, sentences: 1 };
         var p = pos.filter(function(i) {
           return !TRIVIAL[i.id];
         }).slice(0, 2).map(function(i) {
@@ -15895,12 +16050,60 @@ var require_analyzer = __commonJS({
           return r.winner === "tie";
         }).length, behindA, aheadA };
       }
+      function psiUrl(url, opts) {
+        opts = opts || {};
+        var p = ["url=" + encodeURIComponent(url), "strategy=" + (opts.strategy || "mobile"), "locale=" + (opts.locale || "el")];
+        ["performance", "accessibility", "best-practices", "seo"].forEach(function(c) {
+          p.push("category=" + c);
+        });
+        if (opts.key) p.push("key=" + encodeURIComponent(opts.key));
+        return "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?" + p.join("&");
+      }
+      var PSI_CATS = { performance: "\u0391\u03C0\u03CC\u03B4\u03BF\u03C3\u03B7", accessibility: "\u03A0\u03C1\u03BF\u03C3\u03B2\u03B1\u03C3\u03B9\u03BC\u03CC\u03C4\u03B7\u03C4\u03B1", "best-practices": "\u039A\u03B1\u03BB\u03AD\u03C2 \u03C0\u03C1\u03B1\u03BA\u03C4\u03B9\u03BA\u03AD\u03C2", seo: "SEO" };
+      function parsePagespeed(j) {
+        var lr = j && j.lighthouseResult;
+        if (!lr) return null;
+        var cats = [];
+        Object.keys(PSI_CATS).forEach(function(id) {
+          var c = lr.categories && lr.categories[id];
+          if (c && typeof c.score === "number") cats.push({ id, name: PSI_CATS[id], score: Math.round(c.score * 100) });
+        });
+        var A = lr.audits || {};
+        var defs = [["first-contentful-paint", "\u03A0\u03C1\u03CE\u03C4\u03BF \u03C0\u03B5\u03C1\u03B9\u03B5\u03C7\u03CC\u03BC\u03B5\u03BD\u03BF (FCP)"], ["largest-contentful-paint", "\u039A\u03CD\u03C1\u03B9\u03BF \u03C0\u03B5\u03C1\u03B9\u03B5\u03C7\u03CC\u03BC\u03B5\u03BD\u03BF (LCP)"], ["total-blocking-time", "\u03A7\u03C1\u03CC\u03BD\u03BF\u03C2 \u03B1\u03BD\u03B1\u03BC\u03BF\u03BD\u03AE\u03C2 (TBT)"], ["cumulative-layout-shift", "\u039C\u03B5\u03C4\u03B1\u03C4\u03CC\u03C0\u03B9\u03C3\u03B7 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1\u03C2 (CLS)"], ["speed-index", "Speed Index"]];
+        var metrics = defs.map(function(d) {
+          var a = A[d[0]];
+          return a ? { id: d[0], name: d[1], value: a.displayValue || "", status: a.score >= 0.9 ? "pass" : a.score >= 0.5 ? "warn" : "fail" } : null;
+        }).filter(Boolean);
+        var opps = Object.keys(A).map(function(k) {
+          return A[k];
+        }).filter(function(a) {
+          return a && a.details && a.details.type === "opportunity" && a.details.overallSavingsMs >= 150;
+        }).sort(function(x, y) {
+          return y.details.overallSavingsMs - x.details.overallSavingsMs;
+        }).slice(0, 5).map(function(a) {
+          return { title: a.title, value: a.displayValue || Math.round(a.details.overallSavingsMs) + " ms", ms: Math.round(a.details.overallSavingsMs) };
+        });
+        var field = null, le = j.loadingExperience;
+        if (le && le.metrics) {
+          var f = le.metrics;
+          var pick = function(k, name, unit, div) {
+            return f[k] && typeof f[k].percentile === "number" ? { name, value: f[k].percentile / (div || 1) + unit, category: f[k].category } : null;
+          };
+          field = [pick("LARGEST_CONTENTFUL_PAINT_MS", "LCP", " ms"), pick("INTERACTION_TO_NEXT_PAINT", "INP", " ms"), pick("CUMULATIVE_LAYOUT_SHIFT_SCORE", "CLS", "", 100)].filter(Boolean);
+          if (!field.length) field = null;
+        }
+        var perfCat = cats.filter(function(c) {
+          return c.id === "performance";
+        })[0];
+        var perf = perfCat ? perfCat.score : null;
+        return { performance: perf, band: perf === null ? null : perf >= 90 ? { id: "good", label: "\u0393\u03C1\u03AE\u03B3\u03BF\u03C1\u03BF" } : perf >= 50 ? { id: "mid", label: "\u039C\u03AD\u03C4\u03C1\u03B9\u03BF" } : { id: "low", label: "\u0391\u03C1\u03B3\u03CC" }, cats, metrics, opportunities: opps, field, finalUrl: lr.finalUrl || lr.requestedUrl || "" };
+      }
       function analyzeHtml(html, opts) {
         opts = opts || {};
         var doc = new DOMParser().parseFromString(html, "text/html");
         return analyzeSite([{ doc, url: opts.url || "", html, size: html.length }], { mode: "paste", now: opts.now });
       }
-      return { CATS, CHECKS, extract, analyzeSite, analyzeHtml, analyzeGbp, compareReports, PASS, WARN };
+      return { psiUrl, parsePagespeed, CATS, CHECKS, extract, analyzeSite, analyzeHtml, analyzeGbp, compareReports, PASS, WARN };
     });
   }
 });
@@ -15912,7 +16115,7 @@ var net = require("net");
 var Checkup = require_analyzer();
 var UA = "Mozilla/5.0 (compatible; CheckupBot/1.0; +https://example.com/bot)";
 var MAX_BYTES = 2 * 1024 * 1024;
-var TIMEOUT_MS = 12e3;
+var TIMEOUT_MS = 7e3;
 var ALLOW_PRIVATE = process.env.CHECKUP_ALLOW_PRIVATE === "1";
 function isPrivateIp(ip) {
   if (net.isIPv4(ip)) {
@@ -15970,7 +16173,7 @@ async function fetchText(startUrl, opts) {
   for (; ; ) {
     await assertPublic(url.hostname);
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => ctrl.abort(), opts.timeout || TIMEOUT_MS);
     let res;
     try {
       res = await fetch(url.href, { redirect: "manual", signal: ctrl.signal, headers: { "user-agent": UA, accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5", "accept-language": "el,en;q=0.8" } });
@@ -16029,7 +16232,7 @@ function pickInternalPages(homeDoc, homeUrl, max) {
 async function checkRobots(origin) {
   const info = { robotsFound: false, sitemapFound: false, blocksAll: false };
   try {
-    const r = await fetchText(origin + "/robots.txt");
+    const r = await fetchText(origin + "/robots.txt", { timeout: 3e3 });
     if (r.status === 200 && !/<html/i.test(r.text.slice(0, 400))) {
       info.robotsFound = true;
       const lines = r.text.split(/\r?\n/);
@@ -16045,7 +16248,7 @@ async function checkRobots(origin) {
   }
   if (!info.sitemapFound) {
     try {
-      const s = await fetchText(origin + "/sitemap.xml");
+      const s = await fetchText(origin + "/sitemap.xml", { timeout: 3e3 });
       if (s.status === 200 && /<(urlset|sitemapindex)/i.test(s.text.slice(0, 2e3))) info.sitemapFound = true;
     } catch (e) {
     }
@@ -16055,7 +16258,7 @@ async function checkRobots(origin) {
 async function analyzeUrl(input, opts) {
   opts = opts || {};
   const u = normalizeUrl(input);
-  const home = await fetchText(u.href, { html: true });
+  const home = await fetchText(u.href, { html: true, timeout: 7e3 });
   if (home.status === 403 || home.status === 429 || home.status === 503 || /just a moment|cf-chl|attention required/i.test(home.text.slice(0, 3e3))) throw new Error("\u03A4\u03BF site \u03BC\u03C0\u03BB\u03BF\u03BA\u03AC\u03C1\u03B5\u03B9 \u03C4\u03B9\u03C2 \u03B1\u03C5\u03C4\u03CC\u03BC\u03B1\u03C4\u03B5\u03C2 \u03B1\u03BD\u03B1\u03B3\u03BD\u03CE\u03C3\u03B5\u03B9\u03C2 (\u03BA\u03C9\u03B4\u03B9\u03BA\u03CC\u03C2 " + home.status + "). \u0394\u03BF\u03BA\u03AF\u03BC\u03B1\u03C3\u03B5 \u03C4\u03B7\u03BD \u03B5\u03C0\u03B9\u03BA\u03CC\u03BB\u03BB\u03B7\u03C3\u03B7 \u03BA\u03CE\u03B4\u03B9\u03BA\u03B1 \u03B1\u03C0\u03CC \u03C4\u03B9\u03C2 \u03C0\u03C1\u03BF\u03C7\u03C9\u03C1\u03B7\u03BC\u03AD\u03BD\u03B5\u03C2 \u03B5\u03C0\u03B9\u03BB\u03BF\u03B3\u03AD\u03C2.");
   if (home.status >= 400) throw new Error("\u03A4\u03BF site \u03B1\u03C0\u03AC\u03BD\u03C4\u03B7\u03C3\u03B5 \u03BC\u03B5 \u03BA\u03C9\u03B4\u03B9\u03BA\u03CC " + home.status + ". \u0388\u03BB\u03B5\u03B3\u03BE\u03B5 \u03C4\u03B7 \u03B4\u03B9\u03B5\u03CD\u03B8\u03C5\u03BD\u03C3\u03B7.");
   const homeDoc = parseDoc(home.text);
@@ -16063,7 +16266,7 @@ async function analyzeUrl(input, opts) {
   const others = pickInternalPages(homeDoc, home.url, 4);
   const [robots, ...pages] = await Promise.all([
     checkRobots(origin),
-    ...others.map((p) => fetchText(p, { html: true }).catch(() => null))
+    ...others.map((p) => fetchText(p, { html: true, timeout: 4500 }).catch(() => null))
   ]);
   const docs = [{ doc: homeDoc, url: home.url, status: home.status, ms: home.ms, size: home.size, headers: home.headers, html: home.text }];
   pages.forEach((p) => {
@@ -16110,7 +16313,7 @@ var reply = (code, obj) => ({ statusCode: code, headers: H, body: JSON.stringify
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: H, body: "" };
   const qs = event.queryStringParameters || {};
-  if (event.httpMethod === "GET" && qs.ping) return reply(200, { ok: true, places: !!process.env.GOOGLE_PLACES_API_KEY });
+  if (event.httpMethod === "GET" && qs.ping) return reply(200, { ok: true, places: !!process.env.GOOGLE_PLACES_API_KEY, psiKey: process.env.PAGESPEED_API_KEY || "" });
   if (event.httpMethod !== "POST") return reply(405, { ok: false, error: "\u039C\u03AD\u03B8\u03BF\u03B4\u03BF\u03C2 \u03BC\u03B7 \u03B5\u03C0\u03B9\u03C4\u03C1\u03B5\u03C0\u03C4\u03AE." });
   const ip = event.headers && (event.headers["x-nf-client-connection-ip"] || event.headers["x-forwarded-for"]) || "unknown";
   if (rateLimited(ip)) return reply(429, { ok: false, error: "\u03A0\u03BF\u03BB\u03BB\u03AC \u03B1\u03B9\u03C4\u03AE\u03BC\u03B1\u03C4\u03B1. \u0394\u03BF\u03BA\u03AF\u03BC\u03B1\u03C3\u03B5 \u03BE\u03B1\u03BD\u03AC \u03C3\u03B5 \u03AD\u03BD\u03B1 \u03BB\u03B5\u03C0\u03C4\u03CC." });

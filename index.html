@@ -161,6 +161,18 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
 @keyframes sp{ to{ transform:rotate(360deg); } }
 @media (prefers-reduced-motion: reduce){ .spin{ animation:none; } }
 
+
+/* ταχύτητα */
+.speed .top{ display:flex; flex-wrap:wrap; gap:1rem 2rem; align-items:center; margin-top:.9rem; }
+.speed .big{ font:800 3.6rem/.9 var(--display); letter-spacing:-0.04em; font-variant-numeric:tabular-nums; }
+.speed .mini{ display:flex; flex-wrap:wrap; gap:.5rem; }
+.speed .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:.6rem; margin-top:1rem; }
+.speed .chipm{ background:var(--card); border:1px solid var(--line); border-left:4px solid var(--line2); border-radius:10px; padding:.55rem .8rem; }
+.speed .chipm.pass{ border-left-color:var(--teal); } .speed .chipm.warn{ border-left-color:var(--amber-bar); } .speed .chipm.fail{ border-left-color:var(--red-bar); }
+.speed .chipm span{ display:block; font-size:.85rem; color:var(--ink2); } .speed .chipm b{ font:600 1.2rem var(--display); }
+.speed .sample-tag{ display:inline-block; margin-left:.5rem; font-size:.8rem; font-weight:600; padding:.1rem .6rem; border-radius:99px; background:var(--amber-tint); color:var(--amber); }
+.wait{ display:flex; align-items:center; gap:.7rem; padding:.9rem 1rem; background:var(--card); border:1px solid var(--line); border-radius:12px; margin-top:.9rem; color:var(--ink2); }
+
 @media (max-width:820px){
   .sides,.split,.cmp-head{ grid-template-columns:1fr; }
   .head{ grid-template-columns:1fr; }
@@ -375,11 +387,52 @@ document.addEventListener('click', function (e) {
   if (e.target.closest('#sample') || e.target.closest('#sample-top')) {
     hideErr();
     try {
-      if (state.mode === 'single') { state.report = Checkup.analyzeHtml(SAMPLE_WEAK, { url: 'https://acme.gr/' }); state.cmp = null; showReport(); }
-      else { state.cmp = { a: Checkup.analyzeHtml(SAMPLE_WEAK, { url: 'https://acme.gr/' }), b: Checkup.analyzeHtml(SAMPLE_GOOD, { url: 'https://beta.gr/' }) }; state.report = null; showCompare(); }
+      if (state.mode === 'single') { state.report = Checkup.analyzeHtml(SAMPLE_WEAK, { url: 'https://acme.gr/' }); state.report.meta.sample = true; state.cmp = null; showReport(); }
+      else { state.cmp = { a: Checkup.analyzeHtml(SAMPLE_WEAK, { url: 'https://acme.gr/' }), b: Checkup.analyzeHtml(SAMPLE_GOOD, { url: 'https://beta.gr/' }) }; state.cmp.a.meta.sample = state.cmp.b.meta.sample = true; state.report = null; showCompare(); }
     } catch (err) { showErr(err.message); }
   }
 });
+
+
+/* ---------- ταχύτητα (Google PageSpeed) ---------- */
+var SAMPLE_PSI = { lighthouseResult: { categories: { performance: { score: 0.47 }, accessibility: { score: 0.82 }, 'best-practices': { score: 0.78 }, seo: { score: 0.85 } },
+  audits: { 'first-contentful-paint': { displayValue: '2,4 s', score: 0.55 }, 'largest-contentful-paint': { displayValue: '6,1 s', score: 0.05 }, 'total-blocking-time': { displayValue: '210 ms', score: 0.75 }, 'cumulative-layout-shift': { displayValue: '0,02', score: 1 }, 'speed-index': { displayValue: '4,2 s', score: 0.35 },
+    'uses-optimized-images': { title: 'Συμπίεση και σωστή μορφή εικόνων', displayValue: 'Εξοικονόμηση 2,1 s', details: { type: 'opportunity', overallSavingsMs: 2100 } },
+    'render-blocking-resources': { title: 'Αφαίρεση πόρων που μπλοκάρουν την εμφάνιση', displayValue: 'Εξοικονόμηση 0,8 s', details: { type: 'opportunity', overallSavingsMs: 800 } },
+    'unused-javascript': { title: 'Μείωση JavaScript που δεν χρησιμοποιείται', displayValue: 'Εξοικονόμηση 0,4 s', details: { type: 'opportunity', overallSavingsMs: 400 } } } } };
+function speedHtml(sp, title, isSample) {
+  var h = '<section class="sec speed"><h2>' + (title ? esc(title) + ': ' : '') + 'Ταχύτητα' + (isSample ? '<span class="sample-tag">Δείγμα</span>' : '') + '</h2><p class="hint">Μέτρηση από τους servers της Google για κινητό.</p>';
+  h += '<div class="top"><div class="big" aria-label="Βαθμός ταχύτητας ' + sp.performance + ' στα 100">' + sp.performance + '</div><div><span class="pill ' + sp.band.id + '" style="margin-top:0">' + esc(sp.band.label) + '</span></div><div class="mini">' +
+    sp.cats.filter(function (c) { return c.id !== 'performance'; }).map(function (c) { return '<span class="tag ' + (c.score >= 90 ? 'pass' : c.score >= 50 ? 'warn' : 'fail') + '">' + esc(c.name) + ' ' + c.score + '</span>'; }).join('') + '</div></div>';
+  h += '<div class="grid">' + sp.metrics.map(function (m) { return '<div class="chipm ' + m.status + '"><span>' + esc(m.name) + '</span><b>' + esc(m.value || '—') + '</b></div>'; }).join('') + '</div>';
+  if (sp.opportunities.length) h += '<h3 style="margin-top:1.2rem;font-size:1.1rem">Τι θα επιταχύνει τη σελίδα</h3><ol class="wins">' + sp.opportunities.map(function (o) { return '<li><div><b>' + esc(o.title) + '</b></div><span class="gain">' + esc(o.value) + '</span></li>'; }).join('') + '</ol>';
+  if (sp.field) h += '<p class="hint" style="margin-top:.8rem"><b>Πραγματικοί χρήστες (Chrome):</b> ' + sp.field.map(function (f) { return esc(f.name) + ' ' + esc(f.value); }).join(' · ') + '</p>';
+  return h + '</section>';
+}
+function speedWait() { return '<section class="sec speed"><h2>Ταχύτητα</h2><div class="wait"><span class="spin"></span> Μετράμε την ταχύτητα από τους servers της Google. Μπορεί να κρατήσει έως και μισό λεπτό…</div></section>'; }
+function speedError(msg) { return '<section class="sec speed"><h2>Ταχύτητα</h2><p class="note" style="margin-top:.8rem">' + esc(msg) + '</p></section>'; }
+function loadSpeed(url, elId, title) {
+  var el = document.getElementById(elId); if (!el) return;
+  el.innerHTML = speedWait();
+  var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var to = ctrl ? setTimeout(function () { ctrl.abort(); }, 75000) : 0;
+  fetch(Checkup.psiUrl(url, { key: state.backend.psiKey }), ctrl ? { signal: ctrl.signal } : {}).then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); }).then(function (x) {
+    clearTimeout(to);
+    if (x.status === 429) throw new Error('Η μέτρηση ταχύτητας δεν είναι διαθέσιμη αυτή τη στιγμή (όριο χρήσης της Google). Δοκίμασε αργότερα.');
+    if (x.status === 400 || x.status === 403) throw new Error('Η μέτρηση ταχύτητας δεν επιτρέπεται: το κλειδί PageSpeed είναι λάθος ή περιορισμένο για άλλη διεύθυνση.');
+    var sp = Checkup.parsePagespeed(x.j);
+    if (!sp || sp.performance === null) throw new Error('Η Google δεν κατάφερε να μετρήσει αυτή τη σελίδα.');
+    el.innerHTML = speedHtml(sp, title, false);
+  }).catch(function (e) { clearTimeout(to); el.innerHTML = speedError(e.name === 'AbortError' ? 'Η μέτρηση ταχύτητας άργησε πολύ και διακόπηκε.' : (e.message || 'Η μέτρηση ταχύτητας απέτυχε.')); });
+}
+function speedSlot(rep, id, title) {
+  if (rep.meta.sample) return '<div id="' + id + '">' + speedHtml(Checkup.parsePagespeed(SAMPLE_PSI), title, true) + '</div>';
+  if (state.backend.psiKey && rep.meta.mode === 'live' && rep.meta.url) return '<div id="' + id + '" data-speed-url="' + esc(rep.meta.url) + '"></div>';
+  return '';
+}
+function startSpeed(id, title) {
+  var el = document.getElementById(id); if (el && el.dataset.speedUrl) loadSpeed(el.dataset.speedUrl, id, title);
+}
 
 /* ---------- εμφάνιση αναφοράς ---------- */
 function view(name) { $('#view-input').hidden = name !== 'input'; $('#view-report').hidden = name !== 'report'; window.scrollTo(0, 0); }
@@ -412,7 +465,7 @@ function gbpHtml(g) {
 }
 function showReport() {
   var rep = state.report, h = '';
-  h += headHtml(rep) + (rep.cats.length ? catsHtml(rep) : '');
+  h += headHtml(rep) + (rep.cats.length ? catsHtml(rep) : '') + speedSlot(rep, 'speed-a', '');
   if (rep.positives.length || rep.negatives.length) {
     h += '<div class="split"><div class="col"><h2>Τι δουλεύει <span class="badge">' + rep.positives.length + '</span></h2><div class="items">' +
       (rep.positives.map(function (i, n) { return itemHtml(i, false); }).join('') || '<p class="hint">Δεν βρέθηκε κάτι που να πληροί πλήρως τους ελέγχους.</p>') + '</div></div>' +
@@ -433,12 +486,13 @@ function showReport() {
       rep.pages.map(function (p) { var path = p.url; try { path = new URL(p.url).pathname || '/'; } catch (e) {} return '<tr><td class="mono">' + esc(path) + '</td><td>' + esc(p.title || '—') + '</td><td>' + p.words + '</td><td>' + p.h1 + '</td><td>' + (p.descLen ? p.descLen + ' χαρ.' : '—') + '</td></tr>'; }).join('') + '</tbody></table></div></section>';
   }
   h += limitsHtml(rep);
-  $('#report').innerHTML = h; view('report'); state.mode2 = 'report';
+  $('#report').innerHTML = h; view('report'); state.mode2 = 'report'; startSpeed('speed-a', '');
   $('#live').textContent = 'Το check-up ολοκληρώθηκε. Βαθμός ' + rep.score + ' στα 100.';
 }
 function limitsHtml(rep) {
   var sk = rep.skipped.map(function (s) { return '<li>' + esc(s.name) + '</li>'; }).join('');
-  return '<section class="limits"><b>Τι δεν ελέγχθηκε</b><ul><li>Ταχύτητα φόρτωσης, θέση στη Google και επισκεψιμότητα.</li><li>Η ποιότητα και η αλήθεια του περιεχομένου: ο έλεγχος βλέπει την ύπαρξη και τη μορφή, όχι αν τα κείμενα είναι πειστικά.</li>' + (rep.meta.mode === 'paste' ? '<li>Robots.txt, sitemap και άλλες σελίδες του site (χρειάζεται server).</li>' : '') + '</ul>' +
+  var speedOn = state.backend.psiKey && rep.meta.mode === 'live';
+  return '<section class="limits"><b>Τι δεν ελέγχθηκε</b><ul><li>' + (speedOn || rep.meta.sample ? '' : 'Ταχύτητα φόρτωσης, ') + 'θέση στη Google και επισκεψιμότητα. Αυτά φαίνονται μόνο στον ιδιοκτήτη, μέσα από το Search Console.</li><li>Το περιεχόμενο ελέγχεται μόνο με κανόνες (κοινοτοπίες, ύφος, αριθμοί, επαναλήψεις). Δεν κρίνεται αν είναι αληθινό ή πειστικό.</li>' + (rep.meta.mode === 'paste' ? '<li>Robots.txt, sitemap και άλλες σελίδες του site (χρειάζεται server).</li>' : '') + '</ul>' +
     (sk ? '<p style="margin-top:.6rem">Δεν εφαρμόστηκαν σε αυτό το site:</p><ul>' + sk + '</ul>' : '') + '</section>';
 }
 document.addEventListener('click', function (e) {
@@ -456,6 +510,8 @@ function showCompare() {
     var sa = a ? a.score : null, sb = b ? b.score : null;
     return '<div class="cmp-cat"><div class="m r">' + (sa === null ? '<span class="hint">—</span>' : '<div>' + meter(sa, bandOf(sa)) + '<b>' + sa + '</b></div>') + '</div><div class="nm">' + esc(catIds[id]) + '</div><div class="m">' + (sb === null ? '<span class="hint">—</span>' : '<div><b>' + sb + '</b>' + meter(sb, bandOf(sb)) + '</div>') + '</div></div>';
   }).join('') + '</div>';
+  var sa = speedSlot(A, 'speed-a', 'Α'), sb = speedSlot(B, 'speed-b', 'Β');
+  if (sa || sb) h += '<div class="split">' + sa + sb + '</div>';
   h += '<p class="summary" style="margin-top:1rem"><b>' + esc(label(A)) + '</b> προηγείται σε ' + c.aWins + ' ελέγχους, <b>' + esc(label(B)) + '</b> σε ' + c.bWins + ', ισοπαλία σε ' + c.ties + '.</p>';
   h += '<div class="split"><div class="col neg"><h2>Πού υστερεί το Α <span class="badge">' + c.behindA.length + '</span></h2><div class="items">' +
     (c.behindA.slice(0, 8).map(function (r) { return '<details class="item fail" open><summary><span class="ic" aria-hidden="true">✕</span><span class="nm">' + esc(r.name) + '</span></summary><div class="body"><p><span class="lab">Α: </span>' + esc(r.a.ev) + '</p><p class="fixline"><span class="lab">Β: </span>' + esc(r.b.ev) + '</p></div></details>'; }).join('') || '<p class="hint">Το Α δεν υστερεί ουσιαστικά.</p>') + '</div></div>' +
@@ -466,7 +522,7 @@ function showCompare() {
     return '<tr><td>' + esc(r.name) + '</td><td>' + cell(r.a, r.winner === 'a') + '</td><td>' + cell(r.b, r.winner === 'b') + '</td></tr>';
   }).join('') + '</tbody></table></div></section>';
   h += limitsHtml(A);
-  $('#report').innerHTML = h; view('report');
+  $('#report').innerHTML = h; view('report'); startSpeed('speed-a', 'Α'); startSpeed('speed-b', 'Β');
   $('#live').textContent = 'Η σύγκριση ολοκληρώθηκε.';
 }
 
@@ -491,7 +547,7 @@ function detect() {
   var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   if (ctrl) setTimeout(function () { ctrl.abort(); }, 2500);
   fetch(API + '?ping=1', ctrl ? { signal: ctrl.signal } : {}).then(function (r) { return r.json(); }).then(function (j) {
-    if (j && j.ok) { state.backend = { ok: true, places: !!j.places }; renderPanel(); }
+    if (j && j.ok) { state.backend = { ok: true, places: !!j.places, psiKey: j.psiKey || '' }; renderPanel(); }
   }).catch(function () {});
 }
 renderPanel();

@@ -1,5 +1,6 @@
 process.env.CHECKUP_ALLOW_PRIVATE = '1';
 process.env.GOOGLE_PLACES_API_KEY = 'test';
+process.env.PAGESPEED_API_KEY = 'TESTKEY';
 const http = require('http'), fs = require('fs');
 const { weak, page, good } = require('./fixtures.js');
 const fn = require('../netlify/functions/analyze.js');

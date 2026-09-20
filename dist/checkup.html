@@ -161,6 +161,18 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
 @keyframes sp{ to{ transform:rotate(360deg); } }
 @media (prefers-reduced-motion: reduce){ .spin{ animation:none; } }
 
+
+/* ταχύτητα */
+.speed .top{ display:flex; flex-wrap:wrap; gap:1rem 2rem; align-items:center; margin-top:.9rem; }
+.speed .big{ font:800 3.6rem/.9 var(--display); letter-spacing:-0.04em; font-variant-numeric:tabular-nums; }
+.speed .mini{ display:flex; flex-wrap:wrap; gap:.5rem; }
+.speed .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:.6rem; margin-top:1rem; }
+.speed .chipm{ background:var(--card); border:1px solid var(--line); border-left:4px solid var(--line2); border-radius:10px; padding:.55rem .8rem; }
+.speed .chipm.pass{ border-left-color:var(--teal); } .speed .chipm.warn{ border-left-color:var(--amber-bar); } .speed .chipm.fail{ border-left-color:var(--red-bar); }
+.speed .chipm span{ display:block; font-size:.85rem; color:var(--ink2); } .speed .chipm b{ font:600 1.2rem var(--display); }
+.speed .sample-tag{ display:inline-block; margin-left:.5rem; font-size:.8rem; font-weight:600; padding:.1rem .6rem; border-radius:99px; background:var(--amber-tint); color:var(--amber); }
+.wait{ display:flex; align-items:center; gap:.7rem; padding:.9rem 1rem; background:var(--card); border:1px solid var(--line); border-radius:12px; margin-top:.9rem; color:var(--ink2); }
+
 @media (max-width:820px){
   .sides,.split,.cmp-head{ grid-template-columns:1fr; }
   .head{ grid-template-columns:1fr; }
@@ -241,6 +253,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
 
   var CATS = [
     { id: 'clarity', name: 'Σαφήνεια' },
+    { id: 'copy', name: 'Ποιότητα κειμένου' },
     { id: 'trust', name: 'Εμπιστοσύνη' },
     { id: 'find', name: 'Εύρεση στη Google' },
     { id: 'convert', name: 'Επικοινωνία και ενέργεια' },
@@ -275,6 +288,19 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
   function uniq(a) { return Array.from(new Set(a)); }
   function short(s, n) { s = clean(s); return len(s) > n ? Array.from(s).slice(0, n - 1).join('') + '…' : s; }
   function plural(n, one, many) { return n === 1 ? one : many; }
+
+
+  // ---------- βοηθητικά ποιότητας κειμένου (δωρεάν, χωρίς AI) ----------
+  function normGr(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ς/g, 'σ'); }
+  var CLICHES = [
+    [/απαραμιλλ\w*/g, 'απαράμιλλος'], [/καινοτομ\w*/g, 'καινοτόμος/καινοτομία'], [/ολιστικ\w*/g, 'ολιστική'], [/κορυφαι\w*/g, 'κορυφαίος'],
+    [/υψηλ\w+\s+ποιοτητ\w+/g, 'υψηλή ποιότητα'], [/υψηλου\s+επιπεδου/g, 'υψηλού επιπέδου'], [/εξατομικευμεν\w*/g, 'εξατομικευμένος'],
+    [/στοχευμεν\w+\s+λυσ\w+/g, 'στοχευμένες λύσεις'], [/προσθετη\s+αξια|εξαιρετικη\s+αξια/g, 'προστιθέμενη αξία'], [/μοναδικ\w+\s+(?:εμπειρι\w+|λυσ\w+)/g, 'μοναδική εμπειρία'],
+    [/πιστευουμε\s+στην?\s/g, 'πιστεύουμε στην…'], [/βιωσιμη\s+αναπτυξη/g, 'βιώσιμη ανάπτυξη'], [/αριστεια/g, 'αριστεία'], [/εξαιρετικ\w+\s+υπηρεσι\w+/g, 'εξαιρετικές υπηρεσίες'],
+    [/διαρκ\w+\s+αντικτυπ\w+/g, 'διαρκής αντίκτυπος'],
+    [/cutting[- ]edge|state[- ]of[- ]the[- ]art|world[- ]class|best[- ]in[- ]class|innovative\s+solutions|unparalleled|synerg\w+|seamless|next[- ]level|one[- ]stop[- ]shop|passionate\s+team|we\s+believe\s+in|leading\s+provider|tailored\s+solutions|holistic/g, 'αγγλικά κλισέ']
+  ];
+  function wordsOf(t) { return normGr(t).match(/\p{L}+/gu) || []; }
 
   // ---------- εξαγωγή δεδομένων από μία σελίδα ----------
   function extract(doc, ctx) {
@@ -341,6 +367,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
       Array.prototype.slice.call(clone.querySelectorAll('script,style,noscript,template,svg,iframe')).forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
       text = clean(clone.textContent);
     }
+    var pText = clean(q('p').map(function (e) { return clean(e.textContent); }).join(' '));
     var words = text ? text.split(/\s+/).filter(function (w) { return len(w) > 1; }).length : 0;
     var greek = (text.match(/[\u0370-\u03FF\u1F00-\u1FFF]/g) || []).length;
     var latin = (text.match(/[A-Za-z]/g) || []).length;
@@ -415,7 +442,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
       robotsMeta: robotsMeta,
       hreflang: q('link[rel="alternate"][hreflang]').length,
       ldTypes: Array.from(types), ldCount: ld.length, ldBad: ldBad, ld: ld,
-      h1: h1, h2: h2, text: text, words: words, greekRatio: greek + latin ? greek / (greek + latin) : 0,
+      h1: h1, h2: h2, text: text, pText: pText, words: words, greekRatio: greek + latin ? greek / (greek + latin) : 0,
       paras: paras, links: links, buttons: buttons, forms: forms, imgs: imgs,
       phones: uniq(phones), emails: uniq(emails), telLinks: telLinks, mailLinks: mailLinks, hasAddress: hasAddress,
       social: social, socialBroken: socialBroken, privacyLinks: privacyLinks, termsLinks: termsLinks,
@@ -518,6 +545,86 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
         if (h.greekRatio > 0.5 && !isEl) return { s: 0.5, ev: ['lang="' + h.lang + '" αλλά το κείμενο είναι ελληνικό.'] };
         if (h.greekRatio < 0.2 && isEl && h.words > 30) return { s: 0.5, ev: ['lang="el" αλλά το κείμενο είναι κυρίως αγγλικό.'] };
         return { s: 1, ev: ['lang="' + h.lang + '"'] };
+      }
+    },
+
+
+    // --- Ποιότητα κειμένου (κανόνες, χωρίς AI) ---
+    {
+      id: 'cliches', cat: 'copy', w: 3, name: 'Διατύπωση χωρίς κοινοτοπίες',
+      why: 'Φράσεις όπως «απαράμιλλη εξειδίκευση» ή «καινοτόμες λύσεις» υπάρχουν σε χιλιάδες sites και δεν πείθουν κανέναν.',
+      fix: 'Αντικατάστησέ τες με κάτι συγκεκριμένο: τι ακριβώς κάνεις, για ποιον και με ποιο αποτέλεσμα.',
+      run: function (S) {
+        var t = normGr(S.union.pText || S.union.text), w = wordsOf(t).length;
+        if (w < 40) return null;
+        var found = [], total = 0;
+        CLICHES.forEach(function (c) { var m = t.match(c[0]); if (m) { total += m.length; found.push(c[1] + ' (×' + m.length + ')'); } });
+        var dens = total / (w / 100);
+        var s = total === 0 ? 1 : (total <= 2 && dens < 1.2) ? 0.8 : total <= 4 ? 0.5 : 0.2;
+        return { s: s, ev: total ? ['Βρέθηκαν ' + total + ' κοινοτοπίες: ' + found.slice(0, 5).join(', ') + '.'] : ['Δεν βρέθηκαν συνηθισμένες κοινοτοπίες.'] };
+      }
+    },
+    {
+      id: 'voice', cat: 'copy', w: 2, name: 'Μιλάς για τον πελάτη ή για σένα;',
+      why: 'Τα κείμενα που μιλούν μόνο για το «εμείς» δεν απαντούν στο ερώτημα του επισκέπτη: «τι κερδίζω εγώ;».',
+      fix: 'Γύρνα τις προτάσεις προς τον πελάτη: «θα μειώσεις το κόστος σου», όχι «πιστεύουμε στην αριστεία».',
+      run: function (S) {
+        var ws = wordsOf(S.union.pText || S.union.text), we = 0, you = 0;
+        ws.forEach(function (x) {
+          if (/^(εμεισ|μασ|ημων|we|our|us)$/.test(x) || /(ουμε|αμε)$/.test(x) && x.length > 6) we++;
+          else if (/^(εσυ|εσεισ|σου|σασ|εσενα|you|your|yours)$/.test(x)) you++;
+        });
+        if (we + you < 4) return null;
+        var r = we / (we + you);
+        var s = r <= 0.5 ? 1 : r <= 0.65 ? 0.8 : r <= 0.8 ? 0.5 : 0.25;
+        return { s: s, ev: ['Λέξεις για το «εμείς»: ' + we + '. Λέξεις για το «εσύ/εσείς»: ' + you + '.'] };
+      }
+    },
+    {
+      id: 'sentences', cat: 'copy', w: 2, name: 'Μήκος προτάσεων',
+      why: 'Πολύ μεγάλες προτάσεις κουράζουν και ο επισκέπτης σταματά να διαβάζει.',
+      fix: 'Σπάσε τις προτάσεις πάνω από 30 λέξεις σε δύο. Ένα νόημα ανά πρόταση.',
+      run: function (S) {
+        var t = S.union.pText || '';
+        var sen = t.split(/[.!?…;·]+\s+/).map(function (x) { return wordsOf(x).length; }).filter(function (n) { return n >= 3; });
+        var total = sen.reduce(function (a, b) { return a + b; }, 0);
+        if (sen.length < 3 || total < 60) return null;
+        var avg = total / sen.length, longN = sen.filter(function (n) { return n > 35; }).length;
+        var s = avg <= 20 ? 1 : avg <= 26 ? 0.8 : avg <= 32 ? 0.5 : 0.25;
+        if (longN / sen.length > 0.25) s = Math.min(s, 0.5);
+        return { s: s, ev: ['Μέση πρόταση: ' + Math.round(avg) + ' λέξεις.' + (longN ? ' ' + longN + ' ' + (longN === 1 ? 'πρόταση έχει' : 'προτάσεις έχουν') + ' πάνω από 35 λέξεις.' : '')] };
+      }
+    },
+    {
+      id: 'specifics', cat: 'copy', w: 2, name: 'Συγκεκριμένα στοιχεία',
+      why: 'Αριθμοί, χρόνια εμπειρίας, ποσοστά και παραδείγματα κάνουν έναν ισχυρισμό πιστευτό.',
+      fix: 'Πρόσθεσε 2–3 συγκεκριμένα στοιχεία: πόσοι πελάτες, πόσα έργα, σε πόσο χρόνο, με τι αποτέλεσμα.',
+      run: function (S) {
+        var t = S.union.pText || ''; if (wordsOf(t).length < 80) return null;
+        var c = t.replace(/(?:©|copyright)[^.]{0,50}/gi, ' ').replace(/(?:\+?30[\s.-]?)?(?:2\d{2}[\s.-]?\d{3}[\s.-]?\d{4}|69\d[\s.-]?\d{3}[\s.-]?\d{4}|2\d{9}|69\d{8})/g, ' ').replace(/\b\d{3}\s?\d{2}\b/g, ' ');
+        var nums = (c.match(/\d[\d.,]*\s?(?:%|€|\+)?/g) || []).map(function (x) { return x.trim(); }).filter(Boolean);
+        var uniqN = uniq(nums);
+        var s = uniqN.length >= 3 ? 1 : uniqN.length === 2 ? 0.7 : uniqN.length === 1 ? 0.5 : 0.25;
+        return { s: s, ev: uniqN.length ? ['Βρέθηκαν ' + uniqN.length + ' αριθμητικά στοιχεία (π.χ. ' + uniqN.slice(0, 3).join(', ') + ').'] : ['Το κείμενο δεν έχει αριθμούς, ποσοστά ή χρόνια εμπειρίας.'] };
+      }
+    },
+    {
+      id: 'repeat', cat: 'copy', w: 2, name: 'Καθαρότητα κειμένου (επαναλήψεις, μετάφραση)',
+      why: 'Οι λέξεις που επαναλαμβάνονται συνεχώς ή γράφονται δύο φορές («εμπόδια και εμπόδια») δείχνουν αυτόματη μετάφραση ή προχειρότητα.',
+      fix: 'Διάβασε ξανά τα κείμενα φωναχτά και διόρθωσε ό,τι ακούγεται περίεργο. Μείωσε τις λίστες που επαναλαμβάνονται σε κάθε ερώτηση.',
+      run: function (S) {
+        var ev = [], pen = 0, any = false;
+        S.pages.forEach(function (p) {
+          var t = normGr(p.pText || ''); if (wordsOf(t).length < 40) return; any = true;
+          var dbl = t.match(/(?<![\p{L}])(\p{L}{4,})\s+(?:και\s+)?\1(?![\p{L}])/gu);
+          if (dbl && dbl.length) { pen += 0.4; ev.push('Διπλή λέξη: «' + short(dbl[0], 40) + '».'); }
+          var ws = (t.match(/\p{L}{3,}/gu) || []), cnt = {};
+          for (var i = 0; i < ws.length - 2; i++) { var g = ws[i] + ' ' + ws[i + 1] + ' ' + ws[i + 2]; cnt[g] = (cnt[g] || 0) + 1; }
+          var rep = Object.keys(cnt).filter(function (k) { return cnt[k] >= 4; }).sort(function (a, b) { return cnt[b] - cnt[a]; });
+          if (rep.length) { pen += 0.5; ev.push('Η φράση «' + short(rep[0], 40) + '» επαναλαμβάνεται ' + cnt[rep[0]] + ' φορές σε μία σελίδα.'); }
+        });
+        if (!any) return null;
+        return { s: clamp(1 - pen, 0, 1), ev: ev.length ? uniq(ev).slice(0, 3) : ['Δεν βρέθηκαν διπλές λέξεις ή υπερβολικές επαναλήψεις.'] };
       }
     },
 
@@ -832,7 +939,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
       }
     },
     {
-      id: 'placeholders', cat: 'tech', w: 4, name: 'Σπασμένο κείμενο ή placeholder',
+      id: 'placeholders', cat: 'tech', w: 4, name: 'Χωρίς σπασμένο κείμενο',
       why: 'Κείμενα όπως «[[cookie_link]]» ή «{title}» δείχνουν ότι κάτι δεν λειτουργεί και χαλούν την εντύπωση.',
       fix: 'Βρες το κείμενο στη σελίδα και αντικατάστησέ το με τον σωστό σύνδεσμο ή περιεχόμενο.',
       run: function (S) {
@@ -873,14 +980,14 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
   function buildSite(pages, ctx) {
     ctx = ctx || {};
     var home = pages[0];
-    var union = { heads: '', phones: [], emails: [], hasAddress: false, telLinks: 0, mailLinks: 0, social: [], socialBroken: [], privacyLinks: [], termsLinks: [], forms: [], placeholders: [], copyYears: [], text: '', covid: false, lastDate: null, ratingSchema: false, reviewWidget: false };
+    var union = { pText: '', heads: '', phones: [], emails: [], hasAddress: false, telLinks: 0, mailLinks: 0, social: [], socialBroken: [], privacyLinks: [], termsLinks: [], forms: [], placeholders: [], copyYears: [], text: '', covid: false, lastDate: null, ratingSchema: false, reviewWidget: false };
     pages.forEach(function (p) {
       union.phones = union.phones.concat(p.phones); union.emails = union.emails.concat(p.emails);
       union.hasAddress = union.hasAddress || p.hasAddress; union.telLinks += p.telLinks; union.mailLinks += p.mailLinks;
       union.social = union.social.concat(p.social); union.socialBroken = union.socialBroken.concat(p.socialBroken);
       union.privacyLinks = union.privacyLinks.concat(p.privacyLinks); union.termsLinks = union.termsLinks.concat(p.termsLinks);
       union.forms = union.forms.concat(p.forms); union.placeholders = union.placeholders.concat(p.placeholders);
-      union.copyYears = union.copyYears.concat(p.copyYears); union.text += ' ' + p.text;
+      union.copyYears = union.copyYears.concat(p.copyYears); union.text += ' ' + p.text; union.pText += ' ' + (p.pText || '');
       union.heads += ' ' + p.h1.join(' ') + ' ' + p.h2.join(' ') + ' ' + p.links.map(function (l) { return l.name; }).join(' ');
       if (COVID_RE.test(p.text)) union.covid = true;
       if (p.lastDate && (!union.lastDate || p.lastDate > union.lastDate)) union.lastDate = p.lastDate;
@@ -935,7 +1042,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
   }
 
   function makeSummary(score, pos, neg, potential) {
-    var TRIVIAL = { noindex: 1, https: 1, viewport: 1, perf: 1, response: 1, headings: 1, lang: 1, canonical: 1 };
+    var TRIVIAL = { noindex: 1, https: 1, viewport: 1, perf: 1, response: 1, headings: 1, lang: 1, canonical: 1, repeat: 1, placeholders: 1, sentences: 1 };
     var p = pos.filter(function (i) { return !TRIVIAL[i.id]; }).slice(0, 2).map(function (i) { return i.name.toLowerCase(); });
     var n = neg.slice(0, 2).map(function (i) { return i.name.toLowerCase(); });
     var t = '';
@@ -1028,6 +1135,38 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
     return { rows: rows, aWins: wa.length, bWins: wb.length, ties: rows.filter(function (r) { return r.winner === 'tie'; }).length, behindA: behindA, aheadA: aheadA };
   }
 
+
+  // ---------- PageSpeed Insights (Google, δωρεάν) ----------
+  function psiUrl(url, opts) {
+    opts = opts || {};
+    var p = ['url=' + encodeURIComponent(url), 'strategy=' + (opts.strategy || 'mobile'), 'locale=' + (opts.locale || 'el')];
+    ['performance', 'accessibility', 'best-practices', 'seo'].forEach(function (c) { p.push('category=' + c); });
+    if (opts.key) p.push('key=' + encodeURIComponent(opts.key));
+    return 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed?' + p.join('&');
+  }
+  var PSI_CATS = { performance: 'Απόδοση', accessibility: 'Προσβασιμότητα', 'best-practices': 'Καλές πρακτικές', seo: 'SEO' };
+  function parsePagespeed(j) {
+    var lr = j && j.lighthouseResult; if (!lr) return null;
+    var cats = [];
+    Object.keys(PSI_CATS).forEach(function (id) { var c = lr.categories && lr.categories[id]; if (c && typeof c.score === 'number') cats.push({ id: id, name: PSI_CATS[id], score: Math.round(c.score * 100) }); });
+    var A = lr.audits || {};
+    var defs = [['first-contentful-paint', 'Πρώτο περιεχόμενο (FCP)'], ['largest-contentful-paint', 'Κύριο περιεχόμενο (LCP)'], ['total-blocking-time', 'Χρόνος αναμονής (TBT)'], ['cumulative-layout-shift', 'Μετατόπιση σελίδας (CLS)'], ['speed-index', 'Speed Index']];
+    var metrics = defs.map(function (d) { var a = A[d[0]]; return a ? { id: d[0], name: d[1], value: a.displayValue || '', status: a.score >= 0.9 ? 'pass' : a.score >= 0.5 ? 'warn' : 'fail' } : null; }).filter(Boolean);
+    var opps = Object.keys(A).map(function (k) { return A[k]; }).filter(function (a) { return a && a.details && a.details.type === 'opportunity' && a.details.overallSavingsMs >= 150; })
+      .sort(function (x, y) { return y.details.overallSavingsMs - x.details.overallSavingsMs; }).slice(0, 5)
+      .map(function (a) { return { title: a.title, value: a.displayValue || (Math.round(a.details.overallSavingsMs) + ' ms'), ms: Math.round(a.details.overallSavingsMs) }; });
+    var field = null, le = j.loadingExperience;
+    if (le && le.metrics) {
+      var f = le.metrics;
+      var pick = function (k, name, unit, div) { return f[k] && typeof f[k].percentile === 'number' ? { name: name, value: (f[k].percentile / (div || 1)) + unit, category: f[k].category } : null; };
+      field = [pick('LARGEST_CONTENTFUL_PAINT_MS', 'LCP', ' ms'), pick('INTERACTION_TO_NEXT_PAINT', 'INP', ' ms'), pick('CUMULATIVE_LAYOUT_SHIFT_SCORE', 'CLS', '', 100)].filter(Boolean);
+      if (!field.length) field = null;
+    }
+    var perfCat = cats.filter(function (c) { return c.id === 'performance'; })[0];
+    var perf = perfCat ? perfCat.score : null;
+    return { performance: perf, band: perf === null ? null : perf >= 90 ? { id: 'good', label: 'Γρήγορο' } : perf >= 50 ? { id: 'mid', label: 'Μέτριο' } : { id: 'low', label: 'Αργό' }, cats: cats, metrics: metrics, opportunities: opps, field: field, finalUrl: lr.finalUrl || lr.requestedUrl || '' };
+  }
+
   // ---------- είσοδος από browser (επικολλημένο HTML) ----------
   function analyzeHtml(html, opts) {
     opts = opts || {};
@@ -1035,7 +1174,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
     return analyzeSite([{ doc: doc, url: opts.url || '', html: html, size: html.length }], { mode: 'paste', now: opts.now });
   }
 
-  return { CATS: CATS, CHECKS: CHECKS, extract: extract, analyzeSite: analyzeSite, analyzeHtml: analyzeHtml, analyzeGbp: analyzeGbp, compareReports: compareReports, PASS: PASS, WARN: WARN };
+  return { psiUrl: psiUrl, parsePagespeed: parsePagespeed, CATS: CATS, CHECKS: CHECKS, extract: extract, analyzeSite: analyzeSite, analyzeHtml: analyzeHtml, analyzeGbp: analyzeGbp, compareReports: compareReports, PASS: PASS, WARN: WARN };
 });
 
 </script>
@@ -1184,11 +1323,52 @@ document.addEventListener('click', function (e) {
   if (e.target.closest('#sample') || e.target.closest('#sample-top')) {
     hideErr();
     try {
-      if (state.mode === 'single') { state.report = Checkup.analyzeHtml(SAMPLE_WEAK, { url: 'https://acme.gr/' }); state.cmp = null; showReport(); }
-      else { state.cmp = { a: Checkup.analyzeHtml(SAMPLE_WEAK, { url: 'https://acme.gr/' }), b: Checkup.analyzeHtml(SAMPLE_GOOD, { url: 'https://beta.gr/' }) }; state.report = null; showCompare(); }
+      if (state.mode === 'single') { state.report = Checkup.analyzeHtml(SAMPLE_WEAK, { url: 'https://acme.gr/' }); state.report.meta.sample = true; state.cmp = null; showReport(); }
+      else { state.cmp = { a: Checkup.analyzeHtml(SAMPLE_WEAK, { url: 'https://acme.gr/' }), b: Checkup.analyzeHtml(SAMPLE_GOOD, { url: 'https://beta.gr/' }) }; state.cmp.a.meta.sample = state.cmp.b.meta.sample = true; state.report = null; showCompare(); }
     } catch (err) { showErr(err.message); }
   }
 });
+
+
+/* ---------- ταχύτητα (Google PageSpeed) ---------- */
+var SAMPLE_PSI = { lighthouseResult: { categories: { performance: { score: 0.47 }, accessibility: { score: 0.82 }, 'best-practices': { score: 0.78 }, seo: { score: 0.85 } },
+  audits: { 'first-contentful-paint': { displayValue: '2,4 s', score: 0.55 }, 'largest-contentful-paint': { displayValue: '6,1 s', score: 0.05 }, 'total-blocking-time': { displayValue: '210 ms', score: 0.75 }, 'cumulative-layout-shift': { displayValue: '0,02', score: 1 }, 'speed-index': { displayValue: '4,2 s', score: 0.35 },
+    'uses-optimized-images': { title: 'Συμπίεση και σωστή μορφή εικόνων', displayValue: 'Εξοικονόμηση 2,1 s', details: { type: 'opportunity', overallSavingsMs: 2100 } },
+    'render-blocking-resources': { title: 'Αφαίρεση πόρων που μπλοκάρουν την εμφάνιση', displayValue: 'Εξοικονόμηση 0,8 s', details: { type: 'opportunity', overallSavingsMs: 800 } },
+    'unused-javascript': { title: 'Μείωση JavaScript που δεν χρησιμοποιείται', displayValue: 'Εξοικονόμηση 0,4 s', details: { type: 'opportunity', overallSavingsMs: 400 } } } } };
+function speedHtml(sp, title, isSample) {
+  var h = '<section class="sec speed"><h2>' + (title ? esc(title) + ': ' : '') + 'Ταχύτητα' + (isSample ? '<span class="sample-tag">Δείγμα</span>' : '') + '</h2><p class="hint">Μέτρηση από τους servers της Google για κινητό.</p>';
+  h += '<div class="top"><div class="big" aria-label="Βαθμός ταχύτητας ' + sp.performance + ' στα 100">' + sp.performance + '</div><div><span class="pill ' + sp.band.id + '" style="margin-top:0">' + esc(sp.band.label) + '</span></div><div class="mini">' +
+    sp.cats.filter(function (c) { return c.id !== 'performance'; }).map(function (c) { return '<span class="tag ' + (c.score >= 90 ? 'pass' : c.score >= 50 ? 'warn' : 'fail') + '">' + esc(c.name) + ' ' + c.score + '</span>'; }).join('') + '</div></div>';
+  h += '<div class="grid">' + sp.metrics.map(function (m) { return '<div class="chipm ' + m.status + '"><span>' + esc(m.name) + '</span><b>' + esc(m.value || '—') + '</b></div>'; }).join('') + '</div>';
+  if (sp.opportunities.length) h += '<h3 style="margin-top:1.2rem;font-size:1.1rem">Τι θα επιταχύνει τη σελίδα</h3><ol class="wins">' + sp.opportunities.map(function (o) { return '<li><div><b>' + esc(o.title) + '</b></div><span class="gain">' + esc(o.value) + '</span></li>'; }).join('') + '</ol>';
+  if (sp.field) h += '<p class="hint" style="margin-top:.8rem"><b>Πραγματικοί χρήστες (Chrome):</b> ' + sp.field.map(function (f) { return esc(f.name) + ' ' + esc(f.value); }).join(' · ') + '</p>';
+  return h + '</section>';
+}
+function speedWait() { return '<section class="sec speed"><h2>Ταχύτητα</h2><div class="wait"><span class="spin"></span> Μετράμε την ταχύτητα από τους servers της Google. Μπορεί να κρατήσει έως και μισό λεπτό…</div></section>'; }
+function speedError(msg) { return '<section class="sec speed"><h2>Ταχύτητα</h2><p class="note" style="margin-top:.8rem">' + esc(msg) + '</p></section>'; }
+function loadSpeed(url, elId, title) {
+  var el = document.getElementById(elId); if (!el) return;
+  el.innerHTML = speedWait();
+  var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var to = ctrl ? setTimeout(function () { ctrl.abort(); }, 75000) : 0;
+  fetch(Checkup.psiUrl(url, { key: state.backend.psiKey }), ctrl ? { signal: ctrl.signal } : {}).then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); }).then(function (x) {
+    clearTimeout(to);
+    if (x.status === 429) throw new Error('Η μέτρηση ταχύτητας δεν είναι διαθέσιμη αυτή τη στιγμή (όριο χρήσης της Google). Δοκίμασε αργότερα.');
+    if (x.status === 400 || x.status === 403) throw new Error('Η μέτρηση ταχύτητας δεν επιτρέπεται: το κλειδί PageSpeed είναι λάθος ή περιορισμένο για άλλη διεύθυνση.');
+    var sp = Checkup.parsePagespeed(x.j);
+    if (!sp || sp.performance === null) throw new Error('Η Google δεν κατάφερε να μετρήσει αυτή τη σελίδα.');
+    el.innerHTML = speedHtml(sp, title, false);
+  }).catch(function (e) { clearTimeout(to); el.innerHTML = speedError(e.name === 'AbortError' ? 'Η μέτρηση ταχύτητας άργησε πολύ και διακόπηκε.' : (e.message || 'Η μέτρηση ταχύτητας απέτυχε.')); });
+}
+function speedSlot(rep, id, title) {
+  if (rep.meta.sample) return '<div id="' + id + '">' + speedHtml(Checkup.parsePagespeed(SAMPLE_PSI), title, true) + '</div>';
+  if (state.backend.psiKey && rep.meta.mode === 'live' && rep.meta.url) return '<div id="' + id + '" data-speed-url="' + esc(rep.meta.url) + '"></div>';
+  return '';
+}
+function startSpeed(id, title) {
+  var el = document.getElementById(id); if (el && el.dataset.speedUrl) loadSpeed(el.dataset.speedUrl, id, title);
+}
 
 /* ---------- εμφάνιση αναφοράς ---------- */
 function view(name) { $('#view-input').hidden = name !== 'input'; $('#view-report').hidden = name !== 'report'; window.scrollTo(0, 0); }
@@ -1221,7 +1401,7 @@ function gbpHtml(g) {
 }
 function showReport() {
   var rep = state.report, h = '';
-  h += headHtml(rep) + (rep.cats.length ? catsHtml(rep) : '');
+  h += headHtml(rep) + (rep.cats.length ? catsHtml(rep) : '') + speedSlot(rep, 'speed-a', '');
   if (rep.positives.length || rep.negatives.length) {
     h += '<div class="split"><div class="col"><h2>Τι δουλεύει <span class="badge">' + rep.positives.length + '</span></h2><div class="items">' +
       (rep.positives.map(function (i, n) { return itemHtml(i, false); }).join('') || '<p class="hint">Δεν βρέθηκε κάτι που να πληροί πλήρως τους ελέγχους.</p>') + '</div></div>' +
@@ -1242,12 +1422,13 @@ function showReport() {
       rep.pages.map(function (p) { var path = p.url; try { path = new URL(p.url).pathname || '/'; } catch (e) {} return '<tr><td class="mono">' + esc(path) + '</td><td>' + esc(p.title || '—') + '</td><td>' + p.words + '</td><td>' + p.h1 + '</td><td>' + (p.descLen ? p.descLen + ' χαρ.' : '—') + '</td></tr>'; }).join('') + '</tbody></table></div></section>';
   }
   h += limitsHtml(rep);
-  $('#report').innerHTML = h; view('report'); state.mode2 = 'report';
+  $('#report').innerHTML = h; view('report'); state.mode2 = 'report'; startSpeed('speed-a', '');
   $('#live').textContent = 'Το check-up ολοκληρώθηκε. Βαθμός ' + rep.score + ' στα 100.';
 }
 function limitsHtml(rep) {
   var sk = rep.skipped.map(function (s) { return '<li>' + esc(s.name) + '</li>'; }).join('');
-  return '<section class="limits"><b>Τι δεν ελέγχθηκε</b><ul><li>Ταχύτητα φόρτωσης, θέση στη Google και επισκεψιμότητα.</li><li>Η ποιότητα και η αλήθεια του περιεχομένου: ο έλεγχος βλέπει την ύπαρξη και τη μορφή, όχι αν τα κείμενα είναι πειστικά.</li>' + (rep.meta.mode === 'paste' ? '<li>Robots.txt, sitemap και άλλες σελίδες του site (χρειάζεται server).</li>' : '') + '</ul>' +
+  var speedOn = state.backend.psiKey && rep.meta.mode === 'live';
+  return '<section class="limits"><b>Τι δεν ελέγχθηκε</b><ul><li>' + (speedOn || rep.meta.sample ? '' : 'Ταχύτητα φόρτωσης, ') + 'θέση στη Google και επισκεψιμότητα. Αυτά φαίνονται μόνο στον ιδιοκτήτη, μέσα από το Search Console.</li><li>Το περιεχόμενο ελέγχεται μόνο με κανόνες (κοινοτοπίες, ύφος, αριθμοί, επαναλήψεις). Δεν κρίνεται αν είναι αληθινό ή πειστικό.</li>' + (rep.meta.mode === 'paste' ? '<li>Robots.txt, sitemap και άλλες σελίδες του site (χρειάζεται server).</li>' : '') + '</ul>' +
     (sk ? '<p style="margin-top:.6rem">Δεν εφαρμόστηκαν σε αυτό το site:</p><ul>' + sk + '</ul>' : '') + '</section>';
 }
 document.addEventListener('click', function (e) {
@@ -1265,6 +1446,8 @@ function showCompare() {
     var sa = a ? a.score : null, sb = b ? b.score : null;
     return '<div class="cmp-cat"><div class="m r">' + (sa === null ? '<span class="hint">—</span>' : '<div>' + meter(sa, bandOf(sa)) + '<b>' + sa + '</b></div>') + '</div><div class="nm">' + esc(catIds[id]) + '</div><div class="m">' + (sb === null ? '<span class="hint">—</span>' : '<div><b>' + sb + '</b>' + meter(sb, bandOf(sb)) + '</div>') + '</div></div>';
   }).join('') + '</div>';
+  var sa = speedSlot(A, 'speed-a', 'Α'), sb = speedSlot(B, 'speed-b', 'Β');
+  if (sa || sb) h += '<div class="split">' + sa + sb + '</div>';
   h += '<p class="summary" style="margin-top:1rem"><b>' + esc(label(A)) + '</b> προηγείται σε ' + c.aWins + ' ελέγχους, <b>' + esc(label(B)) + '</b> σε ' + c.bWins + ', ισοπαλία σε ' + c.ties + '.</p>';
   h += '<div class="split"><div class="col neg"><h2>Πού υστερεί το Α <span class="badge">' + c.behindA.length + '</span></h2><div class="items">' +
     (c.behindA.slice(0, 8).map(function (r) { return '<details class="item fail" open><summary><span class="ic" aria-hidden="true">✕</span><span class="nm">' + esc(r.name) + '</span></summary><div class="body"><p><span class="lab">Α: </span>' + esc(r.a.ev) + '</p><p class="fixline"><span class="lab">Β: </span>' + esc(r.b.ev) + '</p></div></details>'; }).join('') || '<p class="hint">Το Α δεν υστερεί ουσιαστικά.</p>') + '</div></div>' +
@@ -1275,7 +1458,7 @@ function showCompare() {
     return '<tr><td>' + esc(r.name) + '</td><td>' + cell(r.a, r.winner === 'a') + '</td><td>' + cell(r.b, r.winner === 'b') + '</td></tr>';
   }).join('') + '</tbody></table></div></section>';
   h += limitsHtml(A);
-  $('#report').innerHTML = h; view('report');
+  $('#report').innerHTML = h; view('report'); startSpeed('speed-a', 'Α'); startSpeed('speed-b', 'Β');
   $('#live').textContent = 'Η σύγκριση ολοκληρώθηκε.';
 }
 
@@ -1300,7 +1483,7 @@ function detect() {
   var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   if (ctrl) setTimeout(function () { ctrl.abort(); }, 2500);
   fetch(API + '?ping=1', ctrl ? { signal: ctrl.signal } : {}).then(function (r) { return r.json(); }).then(function (j) {
-    if (j && j.ok) { state.backend = { ok: true, places: !!j.places }; renderPanel(); }
+    if (j && j.ok) { state.backend = { ok: true, places: !!j.places, psiKey: j.psiKey || '' }; renderPanel(); }
   }).catch(function () {});
 }
 renderPanel();

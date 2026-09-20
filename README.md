@@ -7,7 +7,7 @@
 ## Τι περιέχει
 | Αρχείο | Ρόλος |
 |---|---|
-| `analyzer.js` | Η μηχανή ανάλυσης (30 έλεγχοι). Τρέχει και στον browser και στον server. |
+| `analyzer.js` | Η μηχανή ανάλυσης (35 έλεγχοι, μαζί με έλεγχο ποιότητας κειμένου με κανόνες). Τρέχει και στον browser και στον server. |
 | `index.html` | Η εφαρμογή (διεπαφή): ο χρήστης γράφει μόνο τη διεύθυνση του site. |
 | `src/analyze.js` | Ο κώδικας του server (κατεβάζει το site και τρέχει την ανάλυση). |
 | `netlify/functions/analyze.js` | Ο ίδιος server, έτοιμος σε ένα αρχείο, χωρίς εξαρτήσεις. Αυτό ανεβαίνει. |
@@ -26,6 +26,17 @@ app.netlify.com/drop. Το Netlify τρέχει το `node build.js` και δη
 
 Όταν ανοίξεις το site, πρέπει να βλέπεις πεδίο «Διεύθυνση site». Αν βλέπεις μήνυμα «Προεπισκόπηση», ο server
 δεν δημοσιεύτηκε (έλεγξε ότι υπάρχει ο φάκελος `netlify/functions` στα deploy logs).
+
+### Ταχύτητα με Google PageSpeed (δωρεάν, προαιρετικό)
+Δείχνει βαθμό απόδοσης, Core Web Vitals και τι θα επιταχύνει τη σελίδα. Η Google το δίνει δωρεάν με όριο 25.000 μετρήσεις τη μέρα.
+1. Google Cloud Console → νέο project → APIs & Services → Library → ενεργοποίησε το **PageSpeed Insights API**.
+2. Credentials → Create credentials → **API key**.
+3. Στο κλειδί βάλε περιορισμούς: **Application restrictions → Websites** με τη διεύθυνση του site σου
+   (π.χ. `https://onoma.netlify.app/*`) και **API restrictions → PageSpeed Insights API**.
+   Το κλειδί φαίνεται στον browser, γι' αυτό οι περιορισμοί είναι απαραίτητοι.
+4. Netlify → Site configuration → Environment variables → `PAGESPEED_API_KEY` = το κλειδί. Κάνε νέο deploy.
+Η μέτρηση γίνεται από τον browser του χρήστη προς τη Google (όχι από το Netlify), γιατί κρατά 10–30 δευτερόλεπτα και οι
+δωρεάν functions έχουν όριο περίπου 10 δευτερολέπτων. Χωρίς κλειδί, η ενότητα ταχύτητας απλώς δεν εμφανίζεται.
 
 ### Αναζήτηση με όνομα επιχείρησης (προαιρετικό)
 Θέλει κλειδί Google Places API (η Google χρεώνει ανά αίτημα).

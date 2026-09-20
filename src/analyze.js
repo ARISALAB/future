@@ -12,7 +12,7 @@ const Checkup = require('../analyzer.js');
 
 const UA = 'Mozilla/5.0 (compatible; CheckupBot/1.0; +https://example.com/bot)';
 const MAX_BYTES = 2 * 1024 * 1024;
-const TIMEOUT_MS = 12000;
+const TIMEOUT_MS = 7000; // ώστε το σύνολο να χωράει στο όριο των serverless functions του Netlify
 const ALLOW_PRIVATE = process.env.CHECKUP_ALLOW_PRIVATE === '1'; // μόνο για τοπικά τεστ
 
 function isPrivateIp(ip) {
@@ -65,7 +65,7 @@ async function fetchText(startUrl, opts) {
   for (;;) {
     await assertPublic(url.hostname);
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => ctrl.abort(), opts.timeout || TIMEOUT_MS);
     let res;
     try {
       res = await fetch(url.href, { redirect: 'manual', signal: ctrl.signal, headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5', 'accept-language': 'el,en;q=0.8' } });
@@ -110,7 +110,7 @@ function pickInternalPages(homeDoc, homeUrl, max) {
 async function checkRobots(origin) {
   const info = { robotsFound: false, sitemapFound: false, blocksAll: false };
   try {
-    const r = await fetchText(origin + '/robots.txt');
+    const r = await fetchText(origin + '/robots.txt', { timeout: 3000 });
     if (r.status === 200 && !/<html/i.test(r.text.slice(0, 400))) {
       info.robotsFound = true;
       const lines = r.text.split(/\r?\n/);
@@ -123,7 +123,7 @@ async function checkRobots(origin) {
     }
   } catch (e) { /* noop */ }
   if (!info.sitemapFound) {
-    try { const s = await fetchText(origin + '/sitemap.xml'); if (s.status === 200 && /<(urlset|sitemapindex)/i.test(s.text.slice(0, 2000))) info.sitemapFound = true; } catch (e) { /* noop */ }
+    try { const s = await fetchText(origin + '/sitemap.xml', { timeout: 3000 }); if (s.status === 200 && /<(urlset|sitemapindex)/i.test(s.text.slice(0, 2000))) info.sitemapFound = true; } catch (e) { /* noop */ }
   }
   return info;
 }
@@ -131,7 +131,7 @@ async function checkRobots(origin) {
 async function analyzeUrl(input, opts) {
   opts = opts || {};
   const u = normalizeUrl(input);
-  const home = await fetchText(u.href, { html: true });
+  const home = await fetchText(u.href, { html: true, timeout: 7000 });
   if (home.status === 403 || home.status === 429 || home.status === 503 || /just a moment|cf-chl|attention required/i.test(home.text.slice(0, 3000))) throw new Error('Το site μπλοκάρει τις αυτόματες αναγνώσεις (κωδικός ' + home.status + '). Δοκίμασε την επικόλληση κώδικα από τις προχωρημένες επιλογές.');
   if (home.status >= 400) throw new Error('Το site απάντησε με κωδικό ' + home.status + '. Έλεγξε τη διεύθυνση.');
   const homeDoc = parseDoc(home.text);
@@ -139,7 +139,7 @@ async function analyzeUrl(input, opts) {
   const others = pickInternalPages(homeDoc, home.url, 4);
   const [robots, ...pages] = await Promise.all([
     checkRobots(origin),
-    ...others.map((p) => fetchText(p, { html: true }).catch(() => null))
+    ...others.map((p) => fetchText(p, { html: true, timeout: 4500 }).catch(() => null))
   ]);
   const docs = [{ doc: homeDoc, url: home.url, status: home.status, ms: home.ms, size: home.size, headers: home.headers, html: home.text }];
   pages.forEach((p) => { if (p && p.status < 400) docs.push({ doc: parseDoc(p.text), url: p.url, status: p.status, ms: p.ms, size: p.size, headers: p.headers, html: p.text }); });
@@ -183,7 +183,7 @@ const reply = (code, obj) => ({ statusCode: code, headers: H, body: JSON.stringi
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: H, body: '' };
   const qs = event.queryStringParameters || {};
-  if (event.httpMethod === 'GET' && qs.ping) return reply(200, { ok: true, places: !!process.env.GOOGLE_PLACES_API_KEY });
+  if (event.httpMethod === 'GET' && qs.ping) return reply(200, { ok: true, places: !!process.env.GOOGLE_PLACES_API_KEY, psiKey: process.env.PAGESPEED_API_KEY || '' });
   if (event.httpMethod !== 'POST') return reply(405, { ok: false, error: 'Μέθοδος μη επιτρεπτή.' });
   const ip = (event.headers && (event.headers['x-nf-client-connection-ip'] || event.headers['x-forwarded-for'])) || 'unknown';
   if (rateLimited(ip)) return reply(429, { ok: false, error: 'Πολλά αιτήματα. Δοκίμασε ξανά σε ένα λεπτό.' });
