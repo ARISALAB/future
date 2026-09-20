@@ -1,0 +1,27 @@
+{
+  "name": "checkup",
+  "version": "1.0.0",
+  "description": "Check-up: ψηφιακή ανάλυση site με θετικά, αρνητικά και έτοιμες διορθώσεις",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "bundle": "esbuild src/analyze.js --bundle --platform=node --target=node18 --outfile=netlify/functions/analyze.js",
+    "build": "node build.js",
+    "test": "npm run bundle && node test/run.js && node test/server.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "linkedom": "^0.18.13"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "private": true,
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
