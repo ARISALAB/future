@@ -216,11 +216,13 @@ async function discover(body) {
   const city = String(body.city || '').slice(0, 60).trim();
   const host = String(body.host || '');
   const hints = { title: body.title, h1: body.h1, desc: body.desc };
+  const vendor = !!body.vendor;
   const tried = []; let cands = [], provider = '';
   const attempts = [];
+  if (!process.env.TAVILY_API_KEY) tried.push('tavily: δεν έχει ρυθμιστεί (λείπει το TAVILY_API_KEY)');
   if (process.env.TAVILY_API_KEY && query) attempts.push(['tavily', () => tavilySearch(query)]);
   if (process.env.GOOGLE_PLACES_API_KEY && query) attempts.push(['places', () => placesQuery(query)]);
-  const filters = city ? Checkup.osmFilters(hints) : [];
+  const filters = city && !vendor ? Checkup.osmFilters(hints) : [];
   if (city && filters.length) attempts.push(['osm', () => osmSearch(city, filters)]);
   for (const [name, fn] of attempts) {
     try {

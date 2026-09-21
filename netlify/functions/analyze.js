@@ -14879,12 +14879,19 @@ var require_analyzer = __commonJS({
         }).filter(function(i) {
           return !/pixel|facebook\.com\/tr|\/tr\?|1x1|spacer/i.test(i.src);
         });
-        var h1 = q("h1").map(function(e) {
-          return clean(e.textContent);
-        }).filter(Boolean);
-        var h2 = q("h2").map(function(e) {
-          return clean(e.textContent);
-        }).filter(Boolean);
+        function spaced(el) {
+          var c = el.cloneNode(true);
+          Array.prototype.slice.call(c.querySelectorAll("*")).forEach(function(n) {
+            try {
+              n.appendChild(doc.createTextNode(" "));
+              if (n.parentNode) n.parentNode.insertBefore(doc.createTextNode(" "), n);
+            } catch (e) {
+            }
+          });
+          return clean(c.textContent);
+        }
+        var h1 = q("h1").map(spaced).filter(Boolean);
+        var h2 = q("h2").map(spaced).filter(Boolean);
         var body = doc.body;
         var text = "";
         if (body) {
@@ -14895,22 +14902,19 @@ var require_analyzer = __commonJS({
           Array.prototype.slice.call(clone.querySelectorAll("a,li,p,h1,h2,h3,h4,h5,h6,div,span,button,td,th,label,option,section,article,header,footer,nav,br,dt,dd")).forEach(function(n) {
             try {
               n.appendChild(doc.createTextNode(" "));
+              if (n.parentNode) n.parentNode.insertBefore(doc.createTextNode(" "), n);
             } catch (e) {
             }
           });
           text = clean(clone.textContent);
         }
-        var pText = clean(q("p").map(function(e) {
-          return clean(e.textContent);
-        }).join(" "));
+        var pText = clean(q("p").map(spaced).join(" "));
         var words = text ? text.split(/\s+/).filter(function(w) {
           return len(w) > 1;
         }).length : 0;
         var greek = (text.match(/[\u0370-\u03FF\u1F00-\u1FFF]/g) || []).length;
         var latin = (text.match(/[A-Za-z]/g) || []).length;
-        var paras = q("main p, article p, section p, p").map(function(p) {
-          return clean(p.textContent);
-        }).filter(function(t) {
+        var paras = q("main p, article p, section p, p").map(spaced).filter(function(t) {
           return len(t) >= 70 && len(t) <= 400;
         });
         var phones = [];
@@ -15895,7 +15899,7 @@ var require_analyzer = __commonJS({
         }, 0)));
         var band = score >= 80 ? { id: "good", label: "\u03A0\u03BF\u03BB\u03CD \u03BA\u03B1\u03BB\u03AE \u03B2\u03AC\u03C3\u03B7" } : score >= 60 ? { id: "ok", label: "\u039A\u03B1\u03BB\u03AE \u03B2\u03AC\u03C3\u03B7 \u03BC\u03B5 \u03BA\u03B5\u03BD\u03AC" } : score >= 40 ? { id: "mid", label: "\u03A7\u03C1\u03B5\u03B9\u03AC\u03B6\u03B5\u03C4\u03B1\u03B9 \u03B4\u03BF\u03C5\u03BB\u03B5\u03B9\u03AC" } : { id: "low", label: "\u03A3\u03BF\u03B2\u03B1\u03C1\u03AC \u03BA\u03B5\u03BD\u03AC" };
         var report = {
-          meta: { url: home.url, host: S.host, title: home.title, brand: S.brand, analyzedAt: new Date(S.now).toISOString(), pages: pages.length, mode: ctx.mode || "paste", hints: { title: home.title, h1: home.h1[0] || "", desc: home.desc || "", brand: S.brand, text: (home.title + " " + (home.desc || "") + " " + home.h1.join(" ") + " " + S.union.text).slice(0, 4e3), locality: localityOf(home) } },
+          meta: { url: home.url, host: S.host, title: home.title, brand: S.brand, analyzedAt: new Date(S.now).toISOString(), pages: pages.length, mode: ctx.mode || "paste", hints: { title: home.title, h1: home.h1[0] || "", h2: home.h2.slice(0, 3).join(" "), desc: home.desc || "", brand: S.brand, text: (home.title + " " + (home.desc || "") + " " + home.h1.join(" ") + " " + S.union.text).slice(0, 4e3), locality: localityOf(home) } },
           score,
           band,
           cats,
@@ -16059,12 +16063,28 @@ var require_analyzer = __commonJS({
           return first[k];
         }).join(" ");
       }
+      function softwareScore(hints) {
+        hints = hints || {};
+        var idt = normGr([hints.title, hints.h1, hints.h2, hints.desc].join(" ")), body = normGr((hints.text || "").slice(0, 3e3));
+        var a = (idt.match(/εφαρμογ|πλατφορμ|λογισμικ|software|saas|\bapp\b|συστημα\s+(?:κρατησ|διαχειρ|παραγγελ|τιμολογ|ραντεβ|πωλησ)|κρατησ\w*\s+online|online\s+κρατησ|εργαλειο\s+(?:για|διαχειρ)/g) || []).length;
+        var b = (body.match(/εφαρμογ|πλατφορμ|λογισμικ|software|saas|συνδρομ|δωρεαν\s+δοκιμη|free\s+trial|\bdemo\b|εγγραφη|λογαριασμ|πακετα\s+(?:συνδρομ|τιμ)/g) || []).length;
+        return { id: a, body: b };
+      }
+      function isSoftware(hints) {
+        var x = softwareScore(hints);
+        return x.id >= 1 && x.id * 3 + x.body >= 5 || x.body >= 10;
+      }
       function buildQuery(hints, brand, city) {
         hints = hints || {};
         function strip(x) {
           x = clean(x);
           if (brand) x = x.replace(new RegExp(brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "ig"), " ");
           return clean(x.replace(/[|–—:]+/g, " ").replace(/\s-\s/g, " "));
+        }
+        if (isSoftware(hints)) {
+          var idt = [hints.title, hints.h1, hints.h2, hints.desc].map(strip).join(" ") + " " + (hints.text || "").slice(0, 600);
+          var kw = keywordQuery(idt, brand, 3);
+          return clean((kw + " \u03BB\u03BF\u03B3\u03B9\u03C3\u03BC\u03B9\u03BA\u03CC \u03B5\u03C6\u03B1\u03C1\u03BC\u03BF\u03B3\u03AE").trim());
         }
         var cand = [hints.h1, hints.title, hints.desc].map(strip).filter(function(x) {
           return len(x) >= 12;
@@ -16074,7 +16094,7 @@ var require_analyzer = __commonJS({
         if (city && base && normGr(base).indexOf(normGr(city)) < 0) base += " " + city;
         return clean(base);
       }
-      var BLOCK_HOSTS = [/(^|\.)(facebook|fb|instagram|linkedin|youtube|youtu|tiktok|pinterest|wikipedia|wikimedia|tripadvisor|booking|airbnb|expedia|yelp|foursquare|trustpilot|glassdoor|indeed|reddit|quora|medium|amazon|ebay)\./i, /(^|\.)(x|twitter)\.com$/i, /(^|\.)google\./i, /(^|\.)(skroutz|vrisko|xo|11888|yellowpages|athinorama|efood|wolt|e-forologia|kariera|olx|bazaraki|spitogatos|xe|jooble)\.gr$/i, /(blogspot|wordpress|wixsite|weebly)\.com$/i, /(^|\.)(gov|edu)\.gr$/i, /(^|\.)europa\.eu$/i];
+      var BLOCK_HOSTS = [/(^|\.)(capterra|g2|softwareadvice|getapp|alternativeto|producthunt|sourceforge|trustradius|saashub|stackshare|crunchbase|github|gitlab)\.(com|net|co|io)$/i, /(^|\.)(facebook|fb|instagram|linkedin|youtube|youtu|tiktok|pinterest|wikipedia|wikimedia|tripadvisor|booking|airbnb|expedia|yelp|foursquare|trustpilot|glassdoor|indeed|reddit|quora|medium|amazon|ebay)\./i, /(^|\.)(x|twitter)\.com$/i, /(^|\.)google\./i, /(^|\.)(skroutz|vrisko|xo|11888|yellowpages|athinorama|efood|wolt|e-forologia|kariera|olx|bazaraki|spitogatos|xe|jooble)\.gr$/i, /(blogspot|wordpress|wixsite|weebly)\.com$/i, /(^|\.)(gov|edu)\.gr$/i, /(^|\.)europa\.eu$/i];
       var LISTICLE = /(top|best)\s*\d*|τα\s*\d+\s+καλυτερ|καλυτερα|οδηγοσ|κριτικεσ|reviews|\bvs\b|λιστα|συγκριση|τιμεσ/i;
       function filterCandidates(cands, excludeHost) {
         var ex = String(excludeHost || "").replace(/^www\./, ""), seen = {}, out = [];
@@ -16113,9 +16133,12 @@ var require_analyzer = __commonJS({
         return "";
       }
       function guessCategory(bench, hints) {
-        var t = normGr(hints && hints.text || ""), best = null, bs = 0;
+        hints = hints || {};
+        if (isSoftware(hints)) return null;
+        var idt = normGr([hints.title, hints.h1, hints.h2, hints.desc].join(" ")), body = normGr(hints.text || ""), best = null, bs = 0;
         bench.categories.forEach(function(c) {
-          var m = t.match(new RegExp(c.re, "g")), n = m ? m.length : 0;
+          var re = new RegExp(c.re, "g"), mi = idt.match(re), mb = body.match(re);
+          var n = (mi ? mi.length : 0) * 3 + (mb ? mb.length : 0);
           if (c.id === "consulting") n *= 3;
           if (n > bs) {
             bs = n;
@@ -16196,6 +16219,82 @@ var require_analyzer = __commonJS({
           return key(b) - key(a);
         });
         return { rows, gaps, wins };
+      }
+      function narrate(me, rival, rivalName) {
+        var diff = rival.score - me.score;
+        var headline = diff > 0 ? rivalName + " \u03C0\u03C1\u03BF\u03B7\u03B3\u03B5\u03AF\u03C4\u03B1\u03B9 \u03BA\u03B1\u03C4\u03AC " + diff + " " + plural(diff, "\u03C0\u03CC\u03BD\u03C4\u03BF", "\u03C0\u03CC\u03BD\u03C4\u03BF\u03C5\u03C2") + " (" + rival.score + " \u03AD\u03BD\u03B1\u03BD\u03C4\u03B9 " + me.score + ")." : diff < 0 ? "\u03A0\u03C1\u03BF\u03B7\u03B3\u03B5\u03AF\u03C3\u03B1\u03B9 \u03BA\u03B1\u03C4\u03AC " + -diff + " " + plural(-diff, "\u03C0\u03CC\u03BD\u03C4\u03BF", "\u03C0\u03CC\u03BD\u03C4\u03BF\u03C5\u03C2") + " (" + me.score + " \u03AD\u03BD\u03B1\u03BD\u03C4\u03B9 " + rival.score + ")." : "\u0399\u03C3\u03BF\u03B2\u03B1\u03B8\u03BC\u03B5\u03AF\u03C4\u03B5 (" + me.score + " \u03BA\u03B1\u03B9 \u03BF\u03B9 \u03B4\u03CD\u03BF).";
+        var cr = me.cats.map(function(c) {
+          var r = rival.cats.filter(function(x) {
+            return x.id === c.id;
+          })[0];
+          return r ? { name: c.name, me: c.score, rival: r.score, d: r.score - c.score } : null;
+        }).filter(Boolean);
+        var trailCats = cr.filter(function(x) {
+          return x.d >= 10;
+        }).sort(function(a, b) {
+          return b.d - a.d;
+        });
+        var leadCats = cr.filter(function(x) {
+          return x.d <= -10;
+        }).sort(function(a, b) {
+          return a.d - b.d;
+        });
+        var cmp = compareMany(me, [rival]);
+        var fixOf = {};
+        me.negatives.forEach(function(i) {
+          fixOf[i.id] = i.fix;
+        });
+        var gaps = cmp.gaps.slice(0, 5).map(function(g) {
+          return { id: g.row.id, name: g.row.name, me: g.row.cells[0].ev, rival: g.row.cells[1].ev, fix: fixOf[g.row.id] || "" };
+        });
+        var wins = cmp.wins.slice(0, 3).map(function(g) {
+          return { id: g.row.id, name: g.row.name, me: g.row.cells[0].ev, rival: g.row.cells[1].ev };
+        });
+        var verdict;
+        var top = gaps.slice(0, 3).map(function(g) {
+          return g.name.toLowerCase().replace(/google/g, "Google");
+        });
+        if (diff >= 10) verdict = rivalName + " \u03B5\u03AF\u03BD\u03B1\u03B9 \u03C0\u03B9\u03BF \u03AD\u03C4\u03BF\u03B9\u03BC\u03BF\u03C2 \u03B1\u03C0\u03CC \u03C3\u03AD\u03BD\u03B1" + (top.length ? ". \u039F\u03B9 \u03C0\u03B9\u03BF \u03B3\u03C1\u03AE\u03B3\u03BF\u03C1\u03B5\u03C2 \u03BA\u03B9\u03BD\u03AE\u03C3\u03B5\u03B9\u03C2 \u03B3\u03B9\u03B1 \u03BD\u03B1 \u03C4\u03BF\u03BD \u03C6\u03C4\u03AC\u03C3\u03B5\u03B9\u03C2: " + top.join(", ") + "." : ".");
+        else if (diff > -10) verdict = "\u0395\u03AF\u03C3\u03C4\u03B5 \u03BA\u03BF\u03BD\u03C4\u03AC" + (top.length ? ". \u0397 \u03B4\u03B9\u03B1\u03C6\u03BF\u03C1\u03AC \u03BA\u03C1\u03AF\u03BD\u03B5\u03C4\u03B1\u03B9 \u03BA\u03C5\u03C1\u03AF\u03C9\u03C2 \u03C3\u03C4\u03B1: " + top.join(", ") + "." : ".");
+        else verdict = "\u0395\u03AF\u03C3\u03B1\u03B9 \u03BC\u03C0\u03C1\u03BF\u03C3\u03C4\u03AC" + (top.length ? ", \u03B1\u03BB\u03BB\u03AC \u03BF \u03B1\u03BD\u03C4\u03B1\u03B3\u03C9\u03BD\u03B9\u03C3\u03C4\u03AE\u03C2 \u03AD\u03C7\u03B5\u03B9 \u03BA\u03B1\u03BB\u03CD\u03C4\u03B5\u03C1\u03BF: " + top.join(", ") + "." : ".");
+        return { name: rivalName, diff, headline, verdict, trailCats, leadCats, gaps, wins };
+      }
+      function narrateAll(me, rivals, names) {
+        var per = rivals.map(function(r, i) {
+          return narrate(me, r, names[i]);
+        });
+        var count = {}, info = {};
+        per.forEach(function(n) {
+          n.gaps.forEach(function(g) {
+            count[g.id] = (count[g.id] || 0) + 1;
+            info[g.id] = info[g.id] || g;
+          });
+        });
+        var common = Object.keys(count).filter(function(k) {
+          return count[k] === rivals.length;
+        }).map(function(k) {
+          return info[k];
+        });
+        var winAll = {}, winInfo = {};
+        per.forEach(function(n) {
+          n.wins.forEach(function(g) {
+            winAll[g.id] = (winAll[g.id] || 0) + 1;
+            winInfo[g.id] = g;
+          });
+        });
+        var strong = Object.keys(winAll).filter(function(k) {
+          return winAll[k] === rivals.length;
+        }).map(function(k) {
+          return winInfo[k];
+        });
+        var text = [];
+        var ahead = per.filter(function(n) {
+          return n.diff > 0;
+        }).length;
+        if (!ahead) text.push("\u0395\u03AF\u03C3\u03B1\u03B9 \u03BC\u03C0\u03C1\u03BF\u03C3\u03C4\u03AC \u03BA\u03B1\u03B9 \u03B1\u03C0\u03CC \u03C4\u03BF\u03C5\u03C2 " + rivals.length + " \u03B1\u03BD\u03C4\u03B1\u03B3\u03C9\u03BD\u03B9\u03C3\u03C4\u03AD\u03C2 \u03C0\u03BF\u03C5 \u03C3\u03C5\u03B3\u03BA\u03C1\u03AF\u03B8\u03B7\u03BA\u03B1\u03BD.");
+        else if (ahead === rivals.length) text.push((rivals.length > 1 ? "\u039A\u03B1\u03B9 \u03BF\u03B9 " + rivals.length + " \u03B1\u03BD\u03C4\u03B1\u03B3\u03C9\u03BD\u03B9\u03C3\u03C4\u03AD\u03C2" : "\u039F \u03B1\u03BD\u03C4\u03B1\u03B3\u03C9\u03BD\u03B9\u03C3\u03C4\u03AE\u03C2") + " \u03AD\u03C7\u03BF\u03C5\u03BD \u03C5\u03C8\u03B7\u03BB\u03CC\u03C4\u03B5\u03C1\u03BF \u03B2\u03B1\u03B8\u03BC\u03CC \u03B1\u03C0\u03CC \u03C3\u03AD\u03BD\u03B1.");
+        else text.push("\u039F \u03AD\u03BD\u03B1\u03C2 \u03B1\u03C0\u03CC \u03C4\u03BF\u03C5\u03C2 \u03B1\u03BD\u03C4\u03B1\u03B3\u03C9\u03BD\u03B9\u03C3\u03C4\u03AD\u03C2 \u03C0\u03C1\u03BF\u03B7\u03B3\u03B5\u03AF\u03C4\u03B1\u03B9 \u03BA\u03B1\u03B9 \u03BF \u03AC\u03BB\u03BB\u03BF\u03C2 \u03C5\u03C3\u03C4\u03B5\u03C1\u03B5\u03AF \u03C3\u03B5 \u03C3\u03C7\u03AD\u03C3\u03B7 \u03BC\u03B5 \u03C3\u03AD\u03BD\u03B1.");
+        return { per, common, strong, text: text.join(" ") };
       }
       function compareReports(A, B) {
         var map = {};
@@ -16288,7 +16387,7 @@ var require_analyzer = __commonJS({
         var doc = new DOMParser().parseFromString(html, "text/html");
         return analyzeSite([{ doc, url: opts.url || "", html, size: html.length }], { mode: "paste", now: opts.now });
       }
-      return { osmFilters, buildQuery, filterCandidates, guessCategory, guessCity, pickCompetitors, compareMany, psiUrl, parsePagespeed, CATS, CHECKS, extract, analyzeSite, analyzeHtml, analyzeGbp, compareReports, PASS, WARN };
+      return { narrate, narrateAll, isSoftware, osmFilters, buildQuery, filterCandidates, guessCategory, guessCity, pickCompetitors, compareMany, psiUrl, parsePagespeed, CATS, CHECKS, extract, analyzeSite, analyzeHtml, analyzeGbp, compareReports, PASS, WARN };
     });
   }
 });
@@ -16542,12 +16641,14 @@ async function discover(body) {
   const city = String(body.city || "").slice(0, 60).trim();
   const host = String(body.host || "");
   const hints = { title: body.title, h1: body.h1, desc: body.desc };
+  const vendor = !!body.vendor;
   const tried = [];
   let cands = [], provider = "";
   const attempts = [];
+  if (!process.env.TAVILY_API_KEY) tried.push("tavily: \u03B4\u03B5\u03BD \u03AD\u03C7\u03B5\u03B9 \u03C1\u03C5\u03B8\u03BC\u03B9\u03C3\u03C4\u03B5\u03AF (\u03BB\u03B5\u03AF\u03C0\u03B5\u03B9 \u03C4\u03BF TAVILY_API_KEY)");
   if (process.env.TAVILY_API_KEY && query) attempts.push(["tavily", () => tavilySearch(query)]);
   if (process.env.GOOGLE_PLACES_API_KEY && query) attempts.push(["places", () => placesQuery(query)]);
-  const filters2 = city ? Checkup.osmFilters(hints) : [];
+  const filters2 = city && !vendor ? Checkup.osmFilters(hints) : [];
   if (city && filters2.length) attempts.push(["osm", () => osmSearch(city, filters2)]);
   for (const [name, fn] of attempts) {
     try {

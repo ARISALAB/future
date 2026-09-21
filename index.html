@@ -185,6 +185,12 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
 .b3cat .meter{ margin:0; } .b3cat b{ font-size:.9rem; } .b3cat .n{ font:600 .85rem var(--body); }
 .b3head{ display:grid; grid-template-columns:minmax(0,1.2fr) repeat(3,minmax(0,1fr)); gap:1rem; padding-top:1rem; font-weight:600; color:var(--ink2); font-size:.85rem; }
 
+.narr{ margin-top:1rem; padding:1rem 1.1rem; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+.narr h3{ font-size:1.15rem; font-weight:800; } .narr h4{ margin-top:.9rem; font-size:1rem; font-weight:600; }
+.narr .hl{ font-weight:600; margin-top:.3rem; } .narr ul{ margin:.4rem 0 0; padding-left:1.1rem; display:grid; gap:.45rem; }
+.narr .fx{ display:block; color:var(--teal); font-size:.92rem; margin-top:.1rem; }
+.more-diff{ margin-top:1.2rem; } .more-diff > summary{ cursor:pointer; font-weight:600; color:var(--teal); }
+
 @media (max-width:820px){
   .benchctl,.b3{ grid-template-columns:1fr; } .b3cat,.b3head{ grid-template-columns:1fr; }
   .sides,.split,.cmp-head{ grid-template-columns:1fr; }
@@ -458,8 +464,8 @@ function benchSlot(rep) { return benchOn(rep) ? '<div id="bench"></div>' : ''; }
 function startBench(rep) {
   var el = document.getElementById('bench'); if (!el) return;
   var hints = rep.meta.hints || {};
-  var city = Checkup.guessCity(hints);
-  var b = state.bench = { rep: rep, cat: Checkup.guessCategory(BENCH, hints) || '', city: city, query: Checkup.buildQuery(hints, rep.meta.brand, city), pool: [], poolOff: 0, provider: '', urls: ['', ''], names: ['', ''], results: [null, null], errors: [null, null], loading: false, note: '' };
+  var vendor = Checkup.isSoftware(hints), city = vendor ? '' : Checkup.guessCity(hints);
+  var b = state.bench = { rep: rep, vendor: vendor, tried: [], cat: Checkup.guessCategory(BENCH, hints) || '', city: city, query: Checkup.buildQuery(hints, rep.meta.brand, city), pool: [], poolOff: 0, provider: '', urls: ['', ''], names: ['', ''], results: [null, null], errors: [null, null], loading: false, note: '' };
   if (rep.meta.sample) {
     b.names = ['Ανταγωνιστής Α', 'Ανταγωνιστής Β']; b.sample = true; b.query = 'σύμβουλοι εστίασης Αθήνα'; b.provider = 'tavily';
     b.results = [Checkup.analyzeHtml(SAMPLE_GOOD, { url: 'https://beta.gr/' }), Checkup.analyzeHtml(SAMPLE_MID, { url: 'https://gamma.gr/' })];
@@ -471,9 +477,10 @@ function startBench(rep) {
 function discoverAndRun() {
   var b = state.bench, h = b.rep.meta.hints || {};
   b.loading = true; b.note = 'Ψάχνουμε ανταγωνιστές…'; b.results = [null, null]; b.errors = [null, null]; renderBench();
-  api({ action: 'competitors', query: b.query, city: b.city, host: b.rep.meta.host, title: h.title, h1: h.h1, desc: h.desc }).then(function (j) {
+  api({ action: 'competitors', query: b.query, city: b.city, vendor: b.vendor, host: b.rep.meta.host, title: h.title, h1: h.h1, desc: h.desc }).then(function (j) {
     var pool = (j && j.ok && j.candidates) || [], provider = (j && j.provider) || '';
-    if (pool.length < 2 && b.cat) { // εφεδρεία: η λίστα της εφαρμογής
+    b.tried = (j && j.tried) || [];
+    if (pool.length < 2 && b.cat && !b.vendor) { // εφεδρεία: η λίστα της εφαρμογής
       var cur = Checkup.pickCompetitors(BENCH, b.cat, b.city, b.rep.meta.host, 8, 0).map(function (x) { return { url: x.url, name: x.name, source: 'curated' }; });
       if (cur.length > pool.length) { pool = cur; provider = 'curated'; }
     }
@@ -488,7 +495,7 @@ function runFromPool() {
   Promise.all(slice.map(function (c) { return api({ url: c.url }).then(unwrap).then(function (r) { return { c: c, r: r }; }).catch(function () { return null; }); })).then(function (rs) {
     var ok = rs.filter(Boolean).slice(0, 2);
     b.urls = ['', '']; b.names = ['', ''];
-    ok.forEach(function (x, i) { b.results[i] = x.r; b.urls[i] = x.c.url; b.names[i] = x.c.name || label(x.r); });
+    ok.forEach(function (x, i) { b.results[i] = x.r; b.urls[i] = x.c.url; b.names[i] = x.c.source === 'curated' ? (x.c.name || label(x.r)) : label(x.r); });
     b.loading = false; b.note = ok.length ? '' : 'Δεν καταφέραμε να διαβάσουμε τα sites που βρέθηκαν. Πάτα «Άλλοι ανταγωνιστές» ή γράψε δικά σου.'; renderBench();
   });
 }
@@ -496,14 +503,31 @@ function renderBench() {
   var b = state.bench, el = document.getElementById('bench'); if (!el || !b) return;
   var h = '<section class="sec bench"><h2>Εσύ και οι ανταγωνιστές' + (b.sample ? '<span class="sample-tag">Δείγμα</span>' : '') + '</h2>';
   var src = b.provider ? PROV[b.provider] : '';
-  h += '<p class="hint">' + (b.sample ? 'Οι ανταγωνιστές βρίσκονται αυτόματα με βάση το τι κάνει το site σου. Εδώ δείχνουμε δείγμα.' : (src ? 'Βρέθηκαν αυτόματα από ' + esc(src) + ' με βάση το τι κάνει το site σου. Δεν είναι σίγουρο ότι είναι οι πιο σχετικοί: μπορείς να αλλάξεις τη φράση ή τα site.' : 'Οι ανταγωνιστές βρίσκονται αυτόματα με βάση το τι κάνει το site σου.')) + '</p>';
+  h += (b.vendor && !b.sample ? '<p class="note" style="margin-top:.6rem">Το site σου μοιάζει με λογισμικό ή online υπηρεσία, γι\' αυτό ψάχνουμε αντίστοιχα προϊόντα και όχι τοπικές επιχειρήσεις.</p>' : '') + '<p class="hint">' + (b.sample ? 'Οι ανταγωνιστές βρίσκονται αυτόματα με βάση το τι κάνει το site σου. Εδώ δείχνουμε δείγμα.' : (src ? 'Βρέθηκαν αυτόματα από ' + esc(src) + ' με βάση το τι κάνει το site σου. Δεν είναι σίγουρο ότι είναι οι πιο σχετικοί: μπορείς να αλλάξεις τη φράση ή τα site.' : 'Οι ανταγωνιστές βρίσκονται αυτόματα με βάση το τι κάνει το site σου.')) + '</p>';
   if (!b.sample) {
     h += '<div class="benchctl"><div class="full"><label class="f" for="b-q">Τι ψάχνουμε</label><input type="text" id="b-q" value="' + esc(b.query) + '" placeholder="π.χ. σύμβουλοι εστίασης Αθήνα" spellcheck="false"></div>';
     h += '<div><label class="f" for="b-u0">Ανταγωνιστής Α</label><input type="text" id="b-u0" value="' + esc(b.urls[0]) + '" placeholder="π.χ. onoma.gr" spellcheck="false"></div><div><label class="f" for="b-u1">Ανταγωνιστής Β</label><input type="text" id="b-u1" value="' + esc(b.urls[1]) + '" placeholder="π.χ. onoma.gr" spellcheck="false"></div>';
     h += '<div class="full row"><button class="btn btn-primary btn-sm" id="b-search" type="button"' + (b.loading ? ' disabled' : '') + '>Ξαναψάξε ανταγωνιστές</button><button class="btn btn-quiet btn-sm" id="b-run" type="button"' + (b.loading ? ' disabled' : '') + '>Σύγκρινε αυτά που έγραψα</button>' + (b.pool.length > 2 ? '<button class="btn btn-quiet btn-sm" id="b-next" type="button"' + (b.loading ? ' disabled' : '') + '>Άλλοι ανταγωνιστές</button>' : '') + '</div></div>';
   }
+  if (!b.sample && b.tried && b.tried.length && b.provider !== 'tavily') h += '<p class="hint" style="margin-top:.5rem">Τεχνικές πληροφορίες: ' + esc(b.tried.join(' · ')) + '</p>';
   h += '<div id="bench-out">' + (b.loading ? '<div class="wait"><span class="spin"></span> ' + esc(b.note) + '</div>' : (b.note ? '<p class="note" style="margin-top:.8rem">' + esc(b.note) + '</p>' : '') + benchOutHtml()) + '</div></section>';
   el.innerHTML = h;
+}
+function narrHtml(me, reps, names) {
+  var N = Checkup.narrateAll(me, reps, names), h = '<section class="sec"><h2>Σύγκριση ένα προς ένα</h2>';
+  h += '<div class="narr"><p><b>Συμπέρασμα.</b> ' + esc(N.text) + '</p>';
+  if (N.common.length) h += '<p style="margin-top:.6rem"><b>Σε αυτά υστερείς και απέναντι στους δύο:</b> ' + N.common.slice(0, 5).map(function (g) { return esc(g.name.toLowerCase().replace(/google/g, 'Google')); }).join(', ') + '. Είναι οι πιο σίγουρες κινήσεις.</p>';
+  if (N.strong.length) h += '<p style="margin-top:.6rem"><b>Εκεί που είσαι καλύτερος από όλους:</b> ' + N.strong.map(function (g) { return esc(g.name.toLowerCase().replace(/google/g, 'Google')); }).join(', ') + '.</p>';
+  h += '</div>';
+  N.per.forEach(function (n) {
+    h += '<article class="narr rival"><h3>Εσύ έναντι ' + esc(n.name) + '</h3><p class="hl">' + esc(n.headline) + '</p><p>' + esc(n.verdict) + '</p>';
+    if (n.trailCats.length) h += '<p style="margin-top:.6rem"><b>Προηγείται σε:</b> ' + n.trailCats.slice(0, 3).map(function (c) { return esc(c.name) + ' (' + c.rival + ' έναντι ' + c.me + ')'; }).join(', ') + '.</p>';
+    if (n.leadCats.length) h += '<p style="margin-top:.4rem"><b>Προηγείσαι σε:</b> ' + n.leadCats.slice(0, 3).map(function (c) { return esc(c.name) + ' (' + c.me + ' έναντι ' + c.rival + ')'; }).join(', ') + '.</p>';
+    if (n.gaps.length) h += '<h4>Τι κάνει καλύτερα από σένα</h4><ul>' + n.gaps.map(function (g) { return '<li><b>' + esc(g.name) + '.</b> Εσύ: ' + esc(g.me) + ' ' + esc(n.name) + ': ' + esc(g.rival) + (g.fix ? ' <span class="fx">Τι να κάνεις: ' + esc(g.fix) + '</span>' : '') + '</li>'; }).join('') + '</ul>';
+    if (n.wins.length) h += '<h4>Τι κάνεις εσύ καλύτερα</h4><ul>' + n.wins.map(function (g) { return '<li><b>' + esc(g.name) + '.</b> Εσύ: ' + esc(g.me) + ' ' + esc(n.name) + ': ' + esc(g.rival) + '</li>'; }).join('') + '</ul>';
+    h += '</article>';
+  });
+  return h + '</section>';
 }
 function benchOutHtml() {
   var b = state.bench, me = b.rep;
@@ -526,10 +550,11 @@ function benchOutHtml() {
       return '<div>' + meter(c.score, bandOf(c.score)) + '<span class="n">' + c.score + '</span></div>';
     }).join('') + '</div>';
   }).join('');
-  h += '<div class="split"><div class="col neg"><h2>Πού υστερείς <span class="badge">' + cmp.gaps.length + '</span></h2><div class="items">' +
+  h += narrHtml(me, reps, names.slice(1));
+  h += '<details class="more-diff"><summary>Όλες οι διαφορές αναλυτικά</summary><div class="split"><div class="col neg"><h2>Πού υστερείς <span class="badge">' + cmp.gaps.length + '</span></h2><div class="items">' +
     (cmp.gaps.slice(0, 7).map(function (g) { var rv = names[g.rival + 1]; return '<details class="item fail" open><summary><span class="ic" aria-hidden="true">✕</span><span class="nm">' + esc(g.row.name) + '</span></summary><div class="body"><p><span class="lab">Εσύ: </span>' + esc(g.row.cells[0].ev) + '</p><p class="fixline"><span class="lab">' + esc(rv) + ': </span>' + esc(g.row.cells[g.rival + 1].ev) + '</p></div></details>'; }).join('') || '<p class="hint">Δεν υστερείς ουσιαστικά σε κάποιον έλεγχο.</p>') + '</div></div>' +
     '<div class="col"><h2>Πού προηγείσαι <span class="badge">' + cmp.wins.length + '</span></h2><div class="items">' +
-    (cmp.wins.slice(0, 7).map(function (g) { var rv = names[g.rival + 1]; return '<details class="item pass"><summary><span class="ic" aria-hidden="true">✓</span><span class="nm">' + esc(g.row.name) + '</span></summary><div class="body"><p><span class="lab">Εσύ: </span>' + esc(g.row.cells[0].ev) + '</p><p><span class="lab">' + esc(rv) + ': </span>' + esc(g.row.cells[g.rival + 1].ev) + '</p></div></details>'; }).join('') || '<p class="hint">Δεν προηγείσαι ξεκάθαρα σε κάποιον έλεγχο.</p>') + '</div></div></div>';
+    (cmp.wins.slice(0, 7).map(function (g) { var rv = names[g.rival + 1]; return '<details class="item pass"><summary><span class="ic" aria-hidden="true">✓</span><span class="nm">' + esc(g.row.name) + '</span></summary><div class="body"><p><span class="lab">Εσύ: </span>' + esc(g.row.cells[0].ev) + '</p><p><span class="lab">' + esc(rv) + ': </span>' + esc(g.row.cells[g.rival + 1].ev) + '</p></div></details>'; }).join('') || '<p class="hint">Δεν προηγείσαι ξεκάθαρα σε κάποιον έλεγχο.</p>') + '</div></div></div></details>';
   return h;
 }
 function runBench() {

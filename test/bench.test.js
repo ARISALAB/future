@@ -22,3 +22,10 @@ const p2 = C.pickCompetitors(B, 'education', 'Αθήνα', 'x.gr', 2, 2); assert
 assert.strictEqual(C.pickCompetitors(B, 'restaurant', '', 'x.gr', 2, 0).length, 1, 'only 1 restaurant in seed list');
 assert(B.sites.every(s => B.categories.some(c => c.id === s.cat) && /^https:\/\//.test(s.url)), 'seed data valid');
 console.log('BENCH OK');
+// κείμενο σύγκρισης
+const N = C.narrateAll(me, [c1, c2], ['Beta', 'Gamma']);
+assert(N.per.length === 2 && /έχουν υψηλότερο βαθμό/.test(N.text), N.text);
+assert(N.per[0].headline.startsWith('Beta προηγείται κατά') && N.per[0].gaps.length > 0 && N.per[0].gaps[0].fix, JSON.stringify(N.per[0].gaps[0]));
+assert(N.common.length > 0, 'common gaps');
+const back = C.narrate(c1, me, 'Acme'); assert(/^Προηγείσαι κατά/.test(back.headline) && /Είσαι μπροστά/.test(back.verdict), back.headline + ' | ' + back.verdict);
+console.log('NARRATIVE OK:', N.per[0].headline, '|', N.per[0].verdict.slice(0, 90));

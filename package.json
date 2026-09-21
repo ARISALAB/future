@@ -9,7 +9,7 @@
   "scripts": {
     "bundle": "esbuild src/analyze.js --bundle --platform=node --target=node18 --outfile=netlify/functions/analyze.js",
     "build": "node build.js",
-    "test": "npm run bundle && node test/run.js && node test/copy.test.js && node test/server.test.js"
+    "test": "npm run bundle && node test/run.js && node test/copy.test.js && node test/bench.test.js && node test/spaced.test.js && node test/discover.test.js && node test/server.test.js"
   },
   "keywords": [],
   "author": "",
