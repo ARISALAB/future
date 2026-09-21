@@ -168,10 +168,75 @@ async function searchPlaces(name) {
   }));
 }
 
+
+// ---------- αυτόματη εύρεση ανταγωνιστών ----------
+const CONTACT = process.env.CONTACT_EMAIL || 'contact@example.com';
+const OSM_UA = 'CheckupBot/1.0 (' + CONTACT + ')';
+
+async function withTimeout(promise, ms, label) {
+  let t; const timeout = new Promise((_, rej) => { t = setTimeout(() => rej(new Error(label + ': χρονικό όριο')), ms); });
+  try { return await Promise.race([promise, timeout]); } finally { clearTimeout(t); }
+}
+async function tavilySearch(query) {
+  const res = await fetch('https://api.tavily.com/search', {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env.TAVILY_API_KEY },
+    body: JSON.stringify({ query, search_depth: 'basic', max_results: 15, include_answer: false })
+  });
+  if (!res.ok) throw new Error('Tavily HTTP ' + res.status);
+  const j = await res.json();
+  return (j.results || []).map((r) => ({ url: r.url, name: r.title, source: 'tavily' }));
+}
+async function placesQuery(query) {
+  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': process.env.GOOGLE_PLACES_API_KEY, 'X-Goog-FieldMask': 'places.displayName,places.websiteUri' },
+    body: JSON.stringify({ textQuery: query.slice(0, 200), languageCode: 'el', regionCode: 'GR', maxResultCount: 10 })
+  });
+  if (!res.ok) throw new Error('Places HTTP ' + res.status);
+  const j = await res.json();
+  return (j.places || []).filter((p) => p.websiteUri).map((p) => ({ url: p.websiteUri, name: p.displayName && p.displayName.text, source: 'places' }));
+}
+async function osmSearch(city, filters) {
+  const g = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(city + ', Ελλάδα'), { headers: { 'user-agent': OSM_UA, 'accept-language': 'el' } });
+  if (!g.ok) throw new Error('Nominatim HTTP ' + g.status);
+  const geo = await g.json();
+  if (!geo[0]) return [];
+  const parts = filters.map((f) => { const [k, v] = f.split('='); return `nwr["${k}"="${v}"]["website"](around:6000,${geo[0].lat},${geo[0].lon});`; }).join('');
+  const q = `[out:json][timeout:12];(${parts});out tags 80;`;
+  const r = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'user-agent': OSM_UA }, body: 'data=' + encodeURIComponent(q) });
+  if (!r.ok) throw new Error('Overpass HTTP ' + r.status);
+  const j = await r.json();
+  return (j.elements || []).map((e) => {
+    const t = e.tags || {}; const site = t.website || t['contact:website'];
+    return site ? { url: /^https?:/i.test(site) ? site : 'https://' + site, name: t.name || site, source: 'osm', score: Object.keys(t).length + (t.phone || t['contact:phone'] ? 2 : 0) + (t.opening_hours ? 2 : 0) } : null;
+  }).filter(Boolean).sort((a, b) => b.score - a.score);
+}
+async function discover(body) {
+  const query = String(body.query || '').slice(0, 160).trim();
+  const city = String(body.city || '').slice(0, 60).trim();
+  const host = String(body.host || '');
+  const hints = { title: body.title, h1: body.h1, desc: body.desc };
+  const tried = []; let cands = [], provider = '';
+  const attempts = [];
+  if (process.env.TAVILY_API_KEY && query) attempts.push(['tavily', () => tavilySearch(query)]);
+  if (process.env.GOOGLE_PLACES_API_KEY && query) attempts.push(['places', () => placesQuery(query)]);
+  const filters = city ? Checkup.osmFilters(hints) : [];
+  if (city && filters.length) attempts.push(['osm', () => osmSearch(city, filters)]);
+  for (const [name, fn] of attempts) {
+    try {
+      const raw = await withTimeout(fn(), name === 'osm' ? 7500 : 5000, name);
+      cands = Checkup.filterCandidates(raw, host);
+      tried.push(name + ': ' + cands.length);
+      if (cands.length >= 2) { provider = name; break; }
+    } catch (e) { tried.push(name + ': ' + e.message); }
+  }
+  return { ok: true, provider, query, city, candidates: cands.slice(0, 8), tried };
+}
+
 // απλό όριο ρυθμού ανά IP (σε μνήμη· επαρκεί ως πρώτη άμυνα)
 const hits = new Map();
 function rateLimited(ip) {
-  const now = Date.now(), win = 60 * 1000, max = 12;
+  const now = Date.now(), win = 60 * 1000, max = 30;
   const arr = (hits.get(ip) || []).filter((t) => now - t < win);
   arr.push(now); hits.set(ip, arr);
   return arr.length > max;
@@ -183,12 +248,13 @@ const reply = (code, obj) => ({ statusCode: code, headers: H, body: JSON.stringi
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: H, body: '' };
   const qs = event.queryStringParameters || {};
-  if (event.httpMethod === 'GET' && qs.ping) return reply(200, { ok: true, places: !!process.env.GOOGLE_PLACES_API_KEY, psiKey: process.env.PAGESPEED_API_KEY || '' });
+  if (event.httpMethod === 'GET' && qs.ping) return reply(200, { ok: true, places: !!process.env.GOOGLE_PLACES_API_KEY, psiKey: process.env.PAGESPEED_API_KEY || '', discover: { tavily: !!process.env.TAVILY_API_KEY, places: !!process.env.GOOGLE_PLACES_API_KEY, osm: true } });
   if (event.httpMethod !== 'POST') return reply(405, { ok: false, error: 'Μέθοδος μη επιτρεπτή.' });
   const ip = (event.headers && (event.headers['x-nf-client-connection-ip'] || event.headers['x-forwarded-for'])) || 'unknown';
   if (rateLimited(ip)) return reply(429, { ok: false, error: 'Πολλά αιτήματα. Δοκίμασε ξανά σε ένα λεπτό.' });
   let body; try { body = JSON.parse(event.body || '{}'); } catch (e) { return reply(400, { ok: false, error: 'Μη έγκυρο αίτημα.' }); }
   try {
+    if (body.action === 'competitors') return reply(200, await discover(body));
     if (body.name && !body.url) return reply(200, { ok: true, candidates: await searchPlaces(body.name) });
     const report = await analyzeUrl(body.url, { gbp: body.gbp });
     return reply(200, { ok: true, report });
@@ -198,4 +264,4 @@ exports.handler = async (event) => {
   }
 };
 
-exports._internals = { analyzeUrl, isPrivateIp, normalizeUrl, pickInternalPages, searchPlaces };
+exports._internals = { discover, analyzeUrl, isPrivateIp, normalizeUrl, pickInternalPages, searchPlaces };

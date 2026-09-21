@@ -11,6 +11,7 @@ async def main():
         # sample single
         await pg.click('#sample'); await pg.wait_for_timeout(300)
         print('score:', await pg.inner_text('.score'), '| neg badges:', await pg.inner_text('.col.neg h2'))
+        print('bench cards:', await pg.locator('#bench .b3 .card').count(), '| sample tag:', await pg.locator('#bench .sample-tag').count())
         await pg.screenshot(path='/home/claude/checkup/test/s-report.png', full_page=True)
         # dark
         await pg.click('#btn-theme'); await pg.wait_for_timeout(100)

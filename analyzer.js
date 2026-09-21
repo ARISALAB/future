@@ -123,6 +123,7 @@
     if (body) {
       var clone = body.cloneNode(true);
       Array.prototype.slice.call(clone.querySelectorAll('script,style,noscript,template,svg,iframe')).forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+      Array.prototype.slice.call(clone.querySelectorAll('a,li,p,h1,h2,h3,h4,h5,h6,div,span,button,td,th,label,option,section,article,header,footer,nav,br,dt,dd')).forEach(function (n) { try { n.appendChild(doc.createTextNode(' ')); } catch (e) {} });
       text = clean(clone.textContent);
     }
     var pText = clean(q('p').map(function (e) { return clean(e.textContent); }).join(' '));
@@ -789,7 +790,7 @@
     var band = score >= 80 ? { id: 'good', label: 'Πολύ καλή βάση' } : score >= 60 ? { id: 'ok', label: 'Καλή βάση με κενά' } : score >= 40 ? { id: 'mid', label: 'Χρειάζεται δουλειά' } : { id: 'low', label: 'Σοβαρά κενά' };
 
     var report = {
-      meta: { url: home.url, host: S.host, title: home.title, brand: S.brand, analyzedAt: new Date(S.now).toISOString(), pages: pages.length, mode: ctx.mode || 'paste' },
+      meta: { url: home.url, host: S.host, title: home.title, brand: S.brand, analyzedAt: new Date(S.now).toISOString(), pages: pages.length, mode: ctx.mode || 'paste', hints: { title: home.title, h1: home.h1[0] || '', desc: home.desc || '', brand: S.brand, text: (home.title + ' ' + (home.desc || '') + ' ' + home.h1.join(' ') + ' ' + S.union.text).slice(0, 4000), locality: localityOf(home) } },
       score: score, band: band, cats: cats, positives: positives, negatives: negatives, quickWins: quick, potential: potential, skipped: skipped,
       pages: pages.map(function (p) { return { url: p.url, title: p.title, titleLen: len(p.title), descLen: len(p.desc || ''), words: p.words, h1: p.h1.length, status: p.status }; }),
       fixes: buildFixes(S, items),
@@ -872,6 +873,120 @@
     };
   }
 
+
+
+  // ---------- αυτόματη εύρεση ανταγωνιστών ----------
+  var OSM_CATS = [
+    [/συμβουλ|consult/, ['office=consulting']],
+    [/κατασκευη ιστοσελιδ|web design|web development|digital agency|διαφημιστικ/, ['office=it', 'office=advertising_agency']],
+    [/αγγλικ|language school|φροντιστ|ξενων γλωσσων/, ['amenity=language_school', 'amenity=school']],
+    [/εστιατορι|ταβερν|μεζεδ|restaurant|taverna/, ['amenity=restaurant']],
+    [/καφε|cafe|coffee/, ['amenity=cafe']],
+    [/ξενοδοχ|hotel|καταλυμ|δωματι|guest ?house|apartments/, ['tourism=hotel', 'tourism=guest_house', 'tourism=apartment']],
+    [/οδοντιατρ|dentist|dental/, ['amenity=dentist']],
+    [/δικηγορ|lawyer|law firm/, ['office=lawyer']],
+    [/λογιστ|accountant|φοροτεχν/, ['office=accountant']],
+    [/κομμωτηρ|hairdresser|barber/, ['shop=hairdresser']],
+    [/γυμναστηρ|gym\b|fitness/, ['leisure=fitness_centre']],
+    [/φαρμακει|pharmacy/, ['amenity=pharmacy']],
+    [/κτηνιατρ|veterinar/, ['amenity=veterinary']],
+    [/αρχιτεκτ|architect|μηχανικ/, ['office=architect', 'office=engineer']]
+  ];
+  function osmFilters(hints) {
+    var t = normGr([hints && hints.title, hints && hints.h1, hints && hints.desc].join(' '));
+    for (var i = 0; i < OSM_CATS.length; i++) { if (OSM_CATS[i][0].test(t)) return OSM_CATS[i][1]; }
+    return [];
+  }
+  var STOP = new Set(('english espanol deutsch francais italiano και για στην στον στο στις στους των του της τους τον την από προς σας μας σου εσεις εμεις ειναι εχει εχουμε μπορει ολα ολες πιο πολυ οπως αυτο αυτη αυτα αυτες ενα μια μιας ενος στην στους ομως επισης καθε σχετικα υπηρεσιες επικοινωνια αρχικη the and for with your our you that this from are have').split(' ').map(function (w) { return normGr(w); }));
+  function keywordQuery(text, brand, n) {
+    var bt = normGr(brand).match(/\p{L}+/gu) || [], freq = {}, first = {};
+    (String(text || '').match(/\p{L}{5,}/gu) || []).forEach(function (w) {
+      var k = normGr(w); if (STOP.has(k) || bt.indexOf(k) >= 0) return;
+      var st = k.slice(0, 6); freq[st] = (freq[st] || 0) + 1; if (!first[st]) first[st] = w;
+    });
+    return Object.keys(freq).sort(function (a, b) { return freq[b] - freq[a]; }).slice(0, n || 4).map(function (k) { return first[k]; }).join(' ');
+  }
+  function buildQuery(hints, brand, city) {
+    hints = hints || {};
+    function strip(x) {
+      x = clean(x);
+      if (brand) x = x.replace(new RegExp(brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ');
+      return clean(x.replace(/[|–—:]+/g, ' ').replace(/\s-\s/g, ' '));
+    }
+    var cand = [hints.h1, hints.title, hints.desc].map(strip).filter(function (x) { return len(x) >= 12; });
+    var base = (cand[0] || '').split(/\s+/).slice(0, 8).join(' ');
+    if (!base) base = keywordQuery((hints.text || '').slice(0, 1500), brand, 4);
+    if (city && base && normGr(base).indexOf(normGr(city)) < 0) base += ' ' + city;
+    return clean(base);
+  }
+  var BLOCK_HOSTS = [/(^|\.)(facebook|fb|instagram|linkedin|youtube|youtu|tiktok|pinterest|wikipedia|wikimedia|tripadvisor|booking|airbnb|expedia|yelp|foursquare|trustpilot|glassdoor|indeed|reddit|quora|medium|amazon|ebay)\./i, /(^|\.)(x|twitter)\.com$/i, /(^|\.)google\./i, /(^|\.)(skroutz|vrisko|xo|11888|yellowpages|athinorama|efood|wolt|e-forologia|kariera|olx|bazaraki|spitogatos|xe|jooble)\.gr$/i, /(blogspot|wordpress|wixsite|weebly)\.com$/i, /(^|\.)(gov|edu)\.gr$/i, /(^|\.)europa\.eu$/i];
+  var LISTICLE = /(top|best)\s*\d*|τα\s*\d+\s+καλυτερ|καλυτερα|οδηγοσ|κριτικεσ|reviews|\bvs\b|λιστα|συγκριση|τιμεσ/i;
+  function filterCandidates(cands, excludeHost) {
+    var ex = String(excludeHost || '').replace(/^www\./, ''), seen = {}, out = [];
+    (cands || []).forEach(function (c) {
+      var u; try { u = new URL(c.url); } catch (e) { return; }
+      if (!/^https?:$/.test(u.protocol)) return;
+      var h = u.hostname.replace(/^www\./, '');
+      if (!h || h === ex || seen[h]) return;
+      if (BLOCK_HOSTS.some(function (re) { return re.test(h); })) return;
+      if (/\/(blog|news|article|articles|category|tag|forum|wiki|tags)\b/i.test(u.pathname) || LISTICLE.test(normGr(c.name || ''))) return;
+      seen[h] = 1; out.push({ url: u.origin + '/', name: clean(c.name || h).slice(0, 80), source: c.source || '' });
+    });
+    return out;
+  }
+
+  // ---------- ανταγωνιστές ----------
+  var CITIES = [[/αθηνα|athens|αγιου δημητριου|μαρουσι|περιστερι|πειραια|γλυφαδα|κηφισια/, 'Αθήνα'], [/θεσσαλονικ|thessaloniki/, 'Θεσσαλονίκη'], [/πατρα/, 'Πάτρα'], [/ηρακλει|κρητη|χανια|ρεθυμν/, 'Κρήτη'], [/ροδο|rhodes/, 'Ρόδος'], [/κερκυρα|corfu/, 'Κέρκυρα'], [/μυκον|σαντορινη|santorini|κυκλαδ/, 'Κυκλάδες'], [/λαρισα/, 'Λάρισα'], [/βολο/, 'Βόλος'], [/ιωαννινα/, 'Ιωάννινα']];
+  function localityOf(h) {
+    var ld = (h.ld || []).map(function (n) { return n && n.address && (n.address.addressLocality || ''); }).filter(Boolean)[0];
+    return ld || '';
+  }
+  function guessCity(hints) {
+    hints = hints || {};
+    var t = normGr((hints.locality || '') + ' ' + (hints.text || ''));
+    for (var i = 0; i < CITIES.length; i++) { if (CITIES[i][0].test(t)) return CITIES[i][1]; }
+    return '';
+  }
+  function guessCategory(bench, hints) {
+    var t = normGr((hints && hints.text) || ''), best = null, bs = 0;
+    bench.categories.forEach(function (c) {
+      var m = t.match(new RegExp(c.re, 'g')), n = m ? m.length : 0;
+      if (c.id === 'consulting') n *= 3;
+      if (n > bs) { bs = n; best = c.id; }
+    });
+    return bs >= 3 ? best : null;
+  }
+  function pickCompetitors(bench, cat, city, excludeHost, n, offset) {
+    var ex = String(excludeHost || '').replace(/^www\./, '');
+    var c = bench.sites.filter(function (x) { return x.cat === cat && hostOf(x.url) !== ex; });
+    c = c.map(function (x, i) { return { x: x, i: i, pri: city && x.city === city ? 0 : 1 }; }).sort(function (a, b) { return a.pri - b.pri || a.i - b.i; }).map(function (o) { return o.x; });
+    var off = c.length ? (offset || 0) % c.length : 0;
+    c = c.slice(off).concat(c.slice(0, off));
+    return c.slice(0, n || 2);
+  }
+  function compareMany(me, others) {
+    function byId(rep) { var m = {}; rep.positives.concat(rep.negatives).forEach(function (i) { m[i.id] = i; }); return m; }
+    var M = byId(me), O = others.map(byId), ids = {};
+    [M].concat(O).forEach(function (m) { Object.keys(m).forEach(function (k) { ids[k] = 1; }); });
+    var order = {}; CATS.forEach(function (c, i) { order[c.id] = i; });
+    var rows = Object.keys(ids).map(function (id) {
+      var ref = M[id] || O.map(function (o) { return o[id]; }).filter(Boolean)[0];
+      return { id: id, name: ref.name, cat: ref.cat, w: ref.w, cells: [M[id]].concat(O.map(function (o) { return o[id]; })).map(function (c) { return c ? { status: c.status, s: c.s, ev: (c.evidence && c.evidence[0]) || '' } : null; }) };
+    }).sort(function (x, y) { return (order[x.cat] - order[y.cat]) || (y.w - x.w); });
+    var gaps = [], wins = [];
+    rows.forEach(function (r) {
+      var mine = r.cells[0]; if (!mine) return;
+      var best = -1, bi = -1;
+      r.cells.slice(1).forEach(function (c, i) { if (c && c.s > best) { best = c.s; bi = i; } });
+      if (bi < 0) return;
+      var d = best - mine.s;
+      if (d >= 0.3) gaps.push({ row: r, rival: bi, diff: d }); else if (-d >= 0.3) wins.push({ row: r, rival: bi, diff: -d });
+    });
+    function key(g) { return g.row.w * g.diff; }
+    gaps.sort(function (a, b) { return key(b) - key(a); }); wins.sort(function (a, b) { return key(b) - key(a); });
+    return { rows: rows, gaps: gaps, wins: wins };
+  }
+
   // ---------- σύγκριση ----------
   function compareReports(A, B) {
     var map = {};
@@ -932,5 +1047,5 @@
     return analyzeSite([{ doc: doc, url: opts.url || '', html: html, size: html.length }], { mode: 'paste', now: opts.now });
   }
 
-  return { psiUrl: psiUrl, parsePagespeed: parsePagespeed, CATS: CATS, CHECKS: CHECKS, extract: extract, analyzeSite: analyzeSite, analyzeHtml: analyzeHtml, analyzeGbp: analyzeGbp, compareReports: compareReports, PASS: PASS, WARN: WARN };
+  return { osmFilters: osmFilters, buildQuery: buildQuery, filterCandidates: filterCandidates, guessCategory: guessCategory, guessCity: guessCity, pickCompetitors: pickCompetitors, compareMany: compareMany, psiUrl: psiUrl, parsePagespeed: parsePagespeed, CATS: CATS, CHECKS: CHECKS, extract: extract, analyzeSite: analyzeSite, analyzeHtml: analyzeHtml, analyzeGbp: analyzeGbp, compareReports: compareReports, PASS: PASS, WARN: WARN };
 });

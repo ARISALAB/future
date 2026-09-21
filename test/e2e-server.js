@@ -1,15 +1,20 @@
 process.env.CHECKUP_ALLOW_PRIVATE = '1';
 process.env.GOOGLE_PLACES_API_KEY = 'test';
 process.env.PAGESPEED_API_KEY = 'TESTKEY';
+process.env.TAVILY_API_KEY = 'tv';
 const http = require('http'), fs = require('fs');
 const { weak, page, good } = require('./fixtures.js');
 const fn = require('../netlify/functions/analyze.js');
 const routes = { '/': weak, '/services': page('Υπηρεσίες', '', '<h2>x</h2>'), '/contact': page('Επικοινωνία', '', '<h1>Επικοινωνία</h1>'), '/good': good, '/robots.txt': 'User-agent: *\nDisallow:' };
 const site = http.createServer((req, res) => { const b = routes[req.url]; if (b == null) { res.writeHead(404); return res.end('nf'); } res.writeHead(200, { 'content-type': req.url.endsWith('.txt') ? 'text/plain' : 'text/html; charset=utf-8' }); res.end(b); });
 const realFetch = global.fetch;
-site.listen(0, '127.0.0.1', () => {
+site.listen(0, '0.0.0.0', () => {
   const sp = site.address().port;
-  global.fetch = async (u, o) => String(u).includes('places.googleapis.com') ? { ok: true, json: async () => ({ places: [
+  global.fetch = async (u, o) => String(u).includes('api.tavily.com') ? { ok: true, json: async () => ({ results: [
+    { url: 'https://www.facebook.com/x', title: 'FB' },
+    { url: 'http://localhost:' + sp + '/good', title: 'Rival Localhost' },
+    { url: 'http://127.0.0.2:' + sp + '/', title: 'Rival Two' },
+    { url: 'http://127.0.0.3:' + sp + '/', title: 'Rival Three' }] }) } : String(u).includes('places.googleapis.com') ? { ok: true, json: async () => ({ places: [
     { id: '1', displayName: { text: 'Acme Δοκιμή' }, formattedAddress: 'Αθήνα 105 57', websiteUri: 'http://127.0.0.1:' + sp + '/', rating: 4.2, userRatingCount: 7, photos: [{}, {}], nationalPhoneNumber: '210 111 1111', primaryTypeDisplayName: { text: 'Σύμβουλος επιχειρήσεων' } },
     { id: '2', displayName: { text: 'Acme χωρίς site' }, formattedAddress: 'Πειραιάς', rating: 5, userRatingCount: 2 }] }) } : realFetch(u, o);
   const app = http.createServer(async (req, res) => {

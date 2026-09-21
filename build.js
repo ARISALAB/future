@@ -2,7 +2,8 @@
 const fs = require('fs');
 const html = fs.readFileSync('index.html', 'utf8');
 const js = fs.readFileSync('analyzer.js', 'utf8').replace(/<\/script>/gi, '<\\/script>');
-const out = html.replace(/<!--ANALYZER-->[\s\S]*?<!--\/ANALYZER-->/, '<script>\n' + js + '\n</script>');
+const bench = fs.readFileSync('benchmarks.js', 'utf8').replace(/<\/script>/gi, '<\\/script>');
+const out = html.replace(/<!--ANALYZER-->[\s\S]*?<!--\/ANALYZER-->/, () => '<script>\n' + js + '\n</script>\n<script>\n' + bench + '\n</script>');
 fs.mkdirSync('dist', { recursive: true });
 fs.writeFileSync('dist/checkup.html', out);
 fs.writeFileSync('dist/index.html', out);

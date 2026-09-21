@@ -173,7 +173,20 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
 .speed .sample-tag{ display:inline-block; margin-left:.5rem; font-size:.8rem; font-weight:600; padding:.1rem .6rem; border-radius:99px; background:var(--amber-tint); color:var(--amber); }
 .wait{ display:flex; align-items:center; gap:.7rem; padding:.9rem 1rem; background:var(--card); border:1px solid var(--line); border-radius:12px; margin-top:.9rem; color:var(--ink2); }
 
+/* ανταγωνιστές */
+.benchctl{ display:grid; grid-template-columns:1fr 1fr; gap:.7rem 1rem; margin-top:.9rem; padding:1rem; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+.benchctl .full{ grid-column:1 / -1; } .benchctl select{ width:100%; padding:.6rem .7rem; border:1.5px solid var(--line2); border-radius:10px; background:var(--bg); color:var(--ink); font:inherit; }
+.b3{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin-top:1.2rem; }
+.b3 .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:.9rem 1rem; }
+.b3 .card.me{ border-color:var(--teal); box-shadow:inset 0 3px 0 var(--teal); }
+.b3 .sc{ font:800 3rem/.9 var(--display); letter-spacing:-0.04em; font-variant-numeric:tabular-nums; }
+.b3 .nm{ font-weight:600; margin-top:.4rem; overflow-wrap:anywhere; } .b3 .u{ font:400 .8rem var(--mono); color:var(--ink2); overflow-wrap:anywhere; }
+.b3cat{ display:grid; grid-template-columns:minmax(0,1.2fr) repeat(3,minmax(0,1fr)); gap:.5rem 1rem; align-items:center; padding:.5rem 0; border-bottom:1px solid var(--line); }
+.b3cat .meter{ margin:0; } .b3cat b{ font-size:.9rem; } .b3cat .n{ font:600 .85rem var(--body); }
+.b3head{ display:grid; grid-template-columns:minmax(0,1.2fr) repeat(3,minmax(0,1fr)); gap:1rem; padding-top:1rem; font-weight:600; color:var(--ink2); font-size:.85rem; }
+
 @media (max-width:820px){
+  .benchctl,.b3{ grid-template-columns:1fr; } .b3cat,.b3head{ grid-template-columns:1fr; }
   .sides,.split,.cmp-head{ grid-template-columns:1fr; }
   .head{ grid-template-columns:1fr; }
   .cmp-cat{ grid-template-columns:1fr; }
@@ -365,6 +378,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
     if (body) {
       var clone = body.cloneNode(true);
       Array.prototype.slice.call(clone.querySelectorAll('script,style,noscript,template,svg,iframe')).forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+      Array.prototype.slice.call(clone.querySelectorAll('a,li,p,h1,h2,h3,h4,h5,h6,div,span,button,td,th,label,option,section,article,header,footer,nav,br,dt,dd')).forEach(function (n) { try { n.appendChild(doc.createTextNode(' ')); } catch (e) {} });
       text = clean(clone.textContent);
     }
     var pText = clean(q('p').map(function (e) { return clean(e.textContent); }).join(' '));
@@ -1031,7 +1045,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
     var band = score >= 80 ? { id: 'good', label: 'Πολύ καλή βάση' } : score >= 60 ? { id: 'ok', label: 'Καλή βάση με κενά' } : score >= 40 ? { id: 'mid', label: 'Χρειάζεται δουλειά' } : { id: 'low', label: 'Σοβαρά κενά' };
 
     var report = {
-      meta: { url: home.url, host: S.host, title: home.title, brand: S.brand, analyzedAt: new Date(S.now).toISOString(), pages: pages.length, mode: ctx.mode || 'paste' },
+      meta: { url: home.url, host: S.host, title: home.title, brand: S.brand, analyzedAt: new Date(S.now).toISOString(), pages: pages.length, mode: ctx.mode || 'paste', hints: { title: home.title, h1: home.h1[0] || '', desc: home.desc || '', brand: S.brand, text: (home.title + ' ' + (home.desc || '') + ' ' + home.h1.join(' ') + ' ' + S.union.text).slice(0, 4000), locality: localityOf(home) } },
       score: score, band: band, cats: cats, positives: positives, negatives: negatives, quickWins: quick, potential: potential, skipped: skipped,
       pages: pages.map(function (p) { return { url: p.url, title: p.title, titleLen: len(p.title), descLen: len(p.desc || ''), words: p.words, h1: p.h1.length, status: p.status }; }),
       fixes: buildFixes(S, items),
@@ -1114,6 +1128,120 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
     };
   }
 
+
+
+  // ---------- αυτόματη εύρεση ανταγωνιστών ----------
+  var OSM_CATS = [
+    [/συμβουλ|consult/, ['office=consulting']],
+    [/κατασκευη ιστοσελιδ|web design|web development|digital agency|διαφημιστικ/, ['office=it', 'office=advertising_agency']],
+    [/αγγλικ|language school|φροντιστ|ξενων γλωσσων/, ['amenity=language_school', 'amenity=school']],
+    [/εστιατορι|ταβερν|μεζεδ|restaurant|taverna/, ['amenity=restaurant']],
+    [/καφε|cafe|coffee/, ['amenity=cafe']],
+    [/ξενοδοχ|hotel|καταλυμ|δωματι|guest ?house|apartments/, ['tourism=hotel', 'tourism=guest_house', 'tourism=apartment']],
+    [/οδοντιατρ|dentist|dental/, ['amenity=dentist']],
+    [/δικηγορ|lawyer|law firm/, ['office=lawyer']],
+    [/λογιστ|accountant|φοροτεχν/, ['office=accountant']],
+    [/κομμωτηρ|hairdresser|barber/, ['shop=hairdresser']],
+    [/γυμναστηρ|gym\b|fitness/, ['leisure=fitness_centre']],
+    [/φαρμακει|pharmacy/, ['amenity=pharmacy']],
+    [/κτηνιατρ|veterinar/, ['amenity=veterinary']],
+    [/αρχιτεκτ|architect|μηχανικ/, ['office=architect', 'office=engineer']]
+  ];
+  function osmFilters(hints) {
+    var t = normGr([hints && hints.title, hints && hints.h1, hints && hints.desc].join(' '));
+    for (var i = 0; i < OSM_CATS.length; i++) { if (OSM_CATS[i][0].test(t)) return OSM_CATS[i][1]; }
+    return [];
+  }
+  var STOP = new Set(('english espanol deutsch francais italiano και για στην στον στο στις στους των του της τους τον την από προς σας μας σου εσεις εμεις ειναι εχει εχουμε μπορει ολα ολες πιο πολυ οπως αυτο αυτη αυτα αυτες ενα μια μιας ενος στην στους ομως επισης καθε σχετικα υπηρεσιες επικοινωνια αρχικη the and for with your our you that this from are have').split(' ').map(function (w) { return normGr(w); }));
+  function keywordQuery(text, brand, n) {
+    var bt = normGr(brand).match(/\p{L}+/gu) || [], freq = {}, first = {};
+    (String(text || '').match(/\p{L}{5,}/gu) || []).forEach(function (w) {
+      var k = normGr(w); if (STOP.has(k) || bt.indexOf(k) >= 0) return;
+      var st = k.slice(0, 6); freq[st] = (freq[st] || 0) + 1; if (!first[st]) first[st] = w;
+    });
+    return Object.keys(freq).sort(function (a, b) { return freq[b] - freq[a]; }).slice(0, n || 4).map(function (k) { return first[k]; }).join(' ');
+  }
+  function buildQuery(hints, brand, city) {
+    hints = hints || {};
+    function strip(x) {
+      x = clean(x);
+      if (brand) x = x.replace(new RegExp(brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ');
+      return clean(x.replace(/[|–—:]+/g, ' ').replace(/\s-\s/g, ' '));
+    }
+    var cand = [hints.h1, hints.title, hints.desc].map(strip).filter(function (x) { return len(x) >= 12; });
+    var base = (cand[0] || '').split(/\s+/).slice(0, 8).join(' ');
+    if (!base) base = keywordQuery((hints.text || '').slice(0, 1500), brand, 4);
+    if (city && base && normGr(base).indexOf(normGr(city)) < 0) base += ' ' + city;
+    return clean(base);
+  }
+  var BLOCK_HOSTS = [/(^|\.)(facebook|fb|instagram|linkedin|youtube|youtu|tiktok|pinterest|wikipedia|wikimedia|tripadvisor|booking|airbnb|expedia|yelp|foursquare|trustpilot|glassdoor|indeed|reddit|quora|medium|amazon|ebay)\./i, /(^|\.)(x|twitter)\.com$/i, /(^|\.)google\./i, /(^|\.)(skroutz|vrisko|xo|11888|yellowpages|athinorama|efood|wolt|e-forologia|kariera|olx|bazaraki|spitogatos|xe|jooble)\.gr$/i, /(blogspot|wordpress|wixsite|weebly)\.com$/i, /(^|\.)(gov|edu)\.gr$/i, /(^|\.)europa\.eu$/i];
+  var LISTICLE = /(top|best)\s*\d*|τα\s*\d+\s+καλυτερ|καλυτερα|οδηγοσ|κριτικεσ|reviews|\bvs\b|λιστα|συγκριση|τιμεσ/i;
+  function filterCandidates(cands, excludeHost) {
+    var ex = String(excludeHost || '').replace(/^www\./, ''), seen = {}, out = [];
+    (cands || []).forEach(function (c) {
+      var u; try { u = new URL(c.url); } catch (e) { return; }
+      if (!/^https?:$/.test(u.protocol)) return;
+      var h = u.hostname.replace(/^www\./, '');
+      if (!h || h === ex || seen[h]) return;
+      if (BLOCK_HOSTS.some(function (re) { return re.test(h); })) return;
+      if (/\/(blog|news|article|articles|category|tag|forum|wiki|tags)\b/i.test(u.pathname) || LISTICLE.test(normGr(c.name || ''))) return;
+      seen[h] = 1; out.push({ url: u.origin + '/', name: clean(c.name || h).slice(0, 80), source: c.source || '' });
+    });
+    return out;
+  }
+
+  // ---------- ανταγωνιστές ----------
+  var CITIES = [[/αθηνα|athens|αγιου δημητριου|μαρουσι|περιστερι|πειραια|γλυφαδα|κηφισια/, 'Αθήνα'], [/θεσσαλονικ|thessaloniki/, 'Θεσσαλονίκη'], [/πατρα/, 'Πάτρα'], [/ηρακλει|κρητη|χανια|ρεθυμν/, 'Κρήτη'], [/ροδο|rhodes/, 'Ρόδος'], [/κερκυρα|corfu/, 'Κέρκυρα'], [/μυκον|σαντορινη|santorini|κυκλαδ/, 'Κυκλάδες'], [/λαρισα/, 'Λάρισα'], [/βολο/, 'Βόλος'], [/ιωαννινα/, 'Ιωάννινα']];
+  function localityOf(h) {
+    var ld = (h.ld || []).map(function (n) { return n && n.address && (n.address.addressLocality || ''); }).filter(Boolean)[0];
+    return ld || '';
+  }
+  function guessCity(hints) {
+    hints = hints || {};
+    var t = normGr((hints.locality || '') + ' ' + (hints.text || ''));
+    for (var i = 0; i < CITIES.length; i++) { if (CITIES[i][0].test(t)) return CITIES[i][1]; }
+    return '';
+  }
+  function guessCategory(bench, hints) {
+    var t = normGr((hints && hints.text) || ''), best = null, bs = 0;
+    bench.categories.forEach(function (c) {
+      var m = t.match(new RegExp(c.re, 'g')), n = m ? m.length : 0;
+      if (c.id === 'consulting') n *= 3;
+      if (n > bs) { bs = n; best = c.id; }
+    });
+    return bs >= 3 ? best : null;
+  }
+  function pickCompetitors(bench, cat, city, excludeHost, n, offset) {
+    var ex = String(excludeHost || '').replace(/^www\./, '');
+    var c = bench.sites.filter(function (x) { return x.cat === cat && hostOf(x.url) !== ex; });
+    c = c.map(function (x, i) { return { x: x, i: i, pri: city && x.city === city ? 0 : 1 }; }).sort(function (a, b) { return a.pri - b.pri || a.i - b.i; }).map(function (o) { return o.x; });
+    var off = c.length ? (offset || 0) % c.length : 0;
+    c = c.slice(off).concat(c.slice(0, off));
+    return c.slice(0, n || 2);
+  }
+  function compareMany(me, others) {
+    function byId(rep) { var m = {}; rep.positives.concat(rep.negatives).forEach(function (i) { m[i.id] = i; }); return m; }
+    var M = byId(me), O = others.map(byId), ids = {};
+    [M].concat(O).forEach(function (m) { Object.keys(m).forEach(function (k) { ids[k] = 1; }); });
+    var order = {}; CATS.forEach(function (c, i) { order[c.id] = i; });
+    var rows = Object.keys(ids).map(function (id) {
+      var ref = M[id] || O.map(function (o) { return o[id]; }).filter(Boolean)[0];
+      return { id: id, name: ref.name, cat: ref.cat, w: ref.w, cells: [M[id]].concat(O.map(function (o) { return o[id]; })).map(function (c) { return c ? { status: c.status, s: c.s, ev: (c.evidence && c.evidence[0]) || '' } : null; }) };
+    }).sort(function (x, y) { return (order[x.cat] - order[y.cat]) || (y.w - x.w); });
+    var gaps = [], wins = [];
+    rows.forEach(function (r) {
+      var mine = r.cells[0]; if (!mine) return;
+      var best = -1, bi = -1;
+      r.cells.slice(1).forEach(function (c, i) { if (c && c.s > best) { best = c.s; bi = i; } });
+      if (bi < 0) return;
+      var d = best - mine.s;
+      if (d >= 0.3) gaps.push({ row: r, rival: bi, diff: d }); else if (-d >= 0.3) wins.push({ row: r, rival: bi, diff: -d });
+    });
+    function key(g) { return g.row.w * g.diff; }
+    gaps.sort(function (a, b) { return key(b) - key(a); }); wins.sort(function (a, b) { return key(b) - key(a); });
+    return { rows: rows, gaps: gaps, wins: wins };
+  }
+
   // ---------- σύγκριση ----------
   function compareReports(A, B) {
     var map = {};
@@ -1174,7 +1302,40 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
     return analyzeSite([{ doc: doc, url: opts.url || '', html: html, size: html.length }], { mode: 'paste', now: opts.now });
   }
 
-  return { psiUrl: psiUrl, parsePagespeed: parsePagespeed, CATS: CATS, CHECKS: CHECKS, extract: extract, analyzeSite: analyzeSite, analyzeHtml: analyzeHtml, analyzeGbp: analyzeGbp, compareReports: compareReports, PASS: PASS, WARN: WARN };
+  return { osmFilters: osmFilters, buildQuery: buildQuery, filterCandidates: filterCandidates, guessCategory: guessCategory, guessCity: guessCity, pickCompetitors: pickCompetitors, compareMany: compareMany, psiUrl: psiUrl, parsePagespeed: parsePagespeed, CATS: CATS, CHECKS: CHECKS, extract: extract, analyzeSite: analyzeSite, analyzeHtml: analyzeHtml, analyzeGbp: analyzeGbp, compareReports: compareReports, PASS: PASS, WARN: WARN };
+});
+
+</script>
+<script>
+/*
+ * Λίστα ανταγωνιστών (curated). Πρόσθεσε δικά σου sites στον πίνακα `sites`.
+ * cat: id κατηγορίας · city: πόλη (προαιρετικά, βοηθά στην επιλογή) · url: διεύθυνση.
+ * Κάθε κατηγορία χρειάζεται τουλάχιστον 2 sites για αυτόματη σύγκριση.
+ * `re`: λέξεις (χωρίς τόνους, ς→σ) που βοηθούν να μαντέψει η εφαρμογή την κατηγορία του site.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.CheckupBench = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  return {
+    categories: [
+      { id: 'education', name: 'Εκπαίδευση και πιστοποιήσεις (π.χ. αγγλικά για ΑΣΕΠ)', re: 'αγγλικ|πιστοποιητικ|εξετασ|φροντιστ|ielts|toefl|nylc|ασεπ|γλωσσομαθει' },
+      { id: 'consulting', name: 'Συμβουλευτική εστίασης και φιλοξενίας', re: 'συμβουλ|consult' },
+      { id: 'restaurant', name: 'Εστιατόριο / ταβέρνα', re: 'εστιατορι|ταβερν|μεζεδ|μενου|τραπεζι|restaurant|taverna' }
+    ],
+    sites: [
+      { cat: 'education', city: 'Αθήνα', name: 'Online.edu.gr', url: 'https://online.edu.gr/' },
+      { cat: 'education', city: '', name: 'goLearn', url: 'https://www.golearn.gr/' },
+      { cat: 'education', city: '', name: 'Εξετάσεις Αγγλικών OnLine', url: 'https://exetasisonline.gr/' },
+      { cat: 'education', city: '', name: 'Tzaikou Language Centre', url: 'https://www.tzaikou.gr/' },
+      { cat: 'education', city: 'Αθήνα', name: 'ΕΚΕΚ', url: 'https://ekek.gr/' },
+      { cat: 'education', city: 'Αθήνα', name: 'EDU STANDARDS', url: 'https://www.edustandards.eu/' },
+      { cat: 'consulting', city: '', name: 'Czinonas Consulting', url: 'https://czinonas.gr/' },
+      { cat: 'consulting', city: '', name: 'Culinary Consulting', url: 'https://culinaryconsulting.gr/' },
+      { cat: 'consulting', city: '', name: 'Harcos', url: 'https://www.harcos.gr/' },
+      { cat: 'restaurant', city: 'Αθήνα', name: 'Γέρος του Μωριά', url: 'https://www.gerostoumoria-restaurant.com/el/' }
+    ]
+  };
 });
 
 </script>
@@ -1370,6 +1531,106 @@ function startSpeed(id, title) {
   var el = document.getElementById(id); if (el && el.dataset.speedUrl) loadSpeed(el.dataset.speedUrl, id, title);
 }
 
+
+/* ---------- σύγκριση με ανταγωνιστές (αυτόματη εύρεση) ---------- */
+var BENCH = window.CheckupBench || { categories: [], sites: [] };
+var SAMPLE_MID = SAMPLE_GOOD.replace(/<meta name="description"[^>]*>/, '').replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '').replace(/<meta property="og:image"[^>]*>/, '').replace(/<link rel="canonical"[^>]*>/, '');
+var PROV = { tavily: 'αναζήτηση στο διαδίκτυο', places: 'Google Places', osm: 'OpenStreetMap (© OpenStreetMap contributors)', curated: 'τη λίστα της εφαρμογής' };
+function benchOn(rep) { return rep.meta.sample || (state.backend.ok && rep.meta.mode === 'live' && rep.meta.url); }
+function benchSlot(rep) { return benchOn(rep) ? '<div id="bench"></div>' : ''; }
+function startBench(rep) {
+  var el = document.getElementById('bench'); if (!el) return;
+  var hints = rep.meta.hints || {};
+  var city = Checkup.guessCity(hints);
+  var b = state.bench = { rep: rep, cat: Checkup.guessCategory(BENCH, hints) || '', city: city, query: Checkup.buildQuery(hints, rep.meta.brand, city), pool: [], poolOff: 0, provider: '', urls: ['', ''], names: ['', ''], results: [null, null], errors: [null, null], loading: false, note: '' };
+  if (rep.meta.sample) {
+    b.names = ['Ανταγωνιστής Α', 'Ανταγωνιστής Β']; b.sample = true; b.query = 'σύμβουλοι εστίασης Αθήνα'; b.provider = 'tavily';
+    b.results = [Checkup.analyzeHtml(SAMPLE_GOOD, { url: 'https://beta.gr/' }), Checkup.analyzeHtml(SAMPLE_MID, { url: 'https://gamma.gr/' })];
+    b.results[0].meta.brand = 'Beta Consulting'; b.results[1].meta.brand = 'Gamma Services';
+    renderBench(); return;
+  }
+  discoverAndRun();
+}
+function discoverAndRun() {
+  var b = state.bench, h = b.rep.meta.hints || {};
+  b.loading = true; b.note = 'Ψάχνουμε ανταγωνιστές…'; b.results = [null, null]; b.errors = [null, null]; renderBench();
+  api({ action: 'competitors', query: b.query, city: b.city, host: b.rep.meta.host, title: h.title, h1: h.h1, desc: h.desc }).then(function (j) {
+    var pool = (j && j.ok && j.candidates) || [], provider = (j && j.provider) || '';
+    if (pool.length < 2 && b.cat) { // εφεδρεία: η λίστα της εφαρμογής
+      var cur = Checkup.pickCompetitors(BENCH, b.cat, b.city, b.rep.meta.host, 8, 0).map(function (x) { return { url: x.url, name: x.name, source: 'curated' }; });
+      if (cur.length > pool.length) { pool = cur; provider = 'curated'; }
+    }
+    b.pool = pool; b.provider = provider; b.poolOff = 0;
+    if (!pool.length) { b.loading = false; b.note = 'Δεν βρέθηκαν ανταγωνιστές αυτόματα. Γράψε δύο site παρακάτω ή άλλαξε τη φράση αναζήτησης.'; renderBench(); return; }
+    runFromPool();
+  }).catch(function (e) { b.loading = false; b.note = 'Η αναζήτηση ανταγωνιστών δεν ολοκληρώθηκε (' + (e.message || 'σφάλμα') + '). Γράψε δύο site παρακάτω.'; renderBench(); });
+}
+function runFromPool() {
+  var b = state.bench, slice = b.pool.slice(b.poolOff, b.poolOff + 4);
+  b.loading = true; b.note = 'Αναλύουμε τους ανταγωνιστές…'; b.results = [null, null]; b.errors = [null, null]; renderBench();
+  Promise.all(slice.map(function (c) { return api({ url: c.url }).then(unwrap).then(function (r) { return { c: c, r: r }; }).catch(function () { return null; }); })).then(function (rs) {
+    var ok = rs.filter(Boolean).slice(0, 2);
+    b.urls = ['', '']; b.names = ['', ''];
+    ok.forEach(function (x, i) { b.results[i] = x.r; b.urls[i] = x.c.url; b.names[i] = x.c.name || label(x.r); });
+    b.loading = false; b.note = ok.length ? '' : 'Δεν καταφέραμε να διαβάσουμε τα sites που βρέθηκαν. Πάτα «Άλλοι ανταγωνιστές» ή γράψε δικά σου.'; renderBench();
+  });
+}
+function renderBench() {
+  var b = state.bench, el = document.getElementById('bench'); if (!el || !b) return;
+  var h = '<section class="sec bench"><h2>Εσύ και οι ανταγωνιστές' + (b.sample ? '<span class="sample-tag">Δείγμα</span>' : '') + '</h2>';
+  var src = b.provider ? PROV[b.provider] : '';
+  h += '<p class="hint">' + (b.sample ? 'Οι ανταγωνιστές βρίσκονται αυτόματα με βάση το τι κάνει το site σου. Εδώ δείχνουμε δείγμα.' : (src ? 'Βρέθηκαν αυτόματα από ' + esc(src) + ' με βάση το τι κάνει το site σου. Δεν είναι σίγουρο ότι είναι οι πιο σχετικοί: μπορείς να αλλάξεις τη φράση ή τα site.' : 'Οι ανταγωνιστές βρίσκονται αυτόματα με βάση το τι κάνει το site σου.')) + '</p>';
+  if (!b.sample) {
+    h += '<div class="benchctl"><div class="full"><label class="f" for="b-q">Τι ψάχνουμε</label><input type="text" id="b-q" value="' + esc(b.query) + '" placeholder="π.χ. σύμβουλοι εστίασης Αθήνα" spellcheck="false"></div>';
+    h += '<div><label class="f" for="b-u0">Ανταγωνιστής Α</label><input type="text" id="b-u0" value="' + esc(b.urls[0]) + '" placeholder="π.χ. onoma.gr" spellcheck="false"></div><div><label class="f" for="b-u1">Ανταγωνιστής Β</label><input type="text" id="b-u1" value="' + esc(b.urls[1]) + '" placeholder="π.χ. onoma.gr" spellcheck="false"></div>';
+    h += '<div class="full row"><button class="btn btn-primary btn-sm" id="b-search" type="button"' + (b.loading ? ' disabled' : '') + '>Ξαναψάξε ανταγωνιστές</button><button class="btn btn-quiet btn-sm" id="b-run" type="button"' + (b.loading ? ' disabled' : '') + '>Σύγκρινε αυτά που έγραψα</button>' + (b.pool.length > 2 ? '<button class="btn btn-quiet btn-sm" id="b-next" type="button"' + (b.loading ? ' disabled' : '') + '>Άλλοι ανταγωνιστές</button>' : '') + '</div></div>';
+  }
+  h += '<div id="bench-out">' + (b.loading ? '<div class="wait"><span class="spin"></span> ' + esc(b.note) + '</div>' : (b.note ? '<p class="note" style="margin-top:.8rem">' + esc(b.note) + '</p>' : '') + benchOutHtml()) + '</div></section>';
+  el.innerHTML = h;
+}
+function benchOutHtml() {
+  var b = state.bench, me = b.rep;
+  var idx = [], reps = [];
+  b.results.forEach(function (r, i) { if (r) { idx.push(i); reps.push(r); } });
+  var errs = b.errors.map(function (e, i) { return e ? '<p class="note" style="margin-top:.7rem">Ανταγωνιστής ' + (i ? 'Β' : 'Α') + ' (' + esc(b.urls[i]) + '): ' + esc(e) + '</p>' : ''; }).join('');
+  if (!reps.length) return errs || '<p class="hint" style="margin-top:.8rem">Γράψε δύο site ανταγωνιστών και πάτα «Σύγκρινε αυτά που έγραψα», ή άλλαξε τη φράση αναζήτησης.</p>';
+  var all = [me].concat(reps);
+  var names = ['Εσύ'].concat(idx.map(function (i) { return b.names[i] || label(b.results[i]); }));
+  var cmp = Checkup.compareMany(me, reps);
+  var h = errs + '<div class="b3" style="grid-template-columns:repeat(' + all.length + ',minmax(0,1fr))">' + all.map(function (r, i) {
+    return '<div class="card' + (i === 0 ? ' me' : '') + '"><div class="sc">' + r.score + '<small style="font-size:1rem;font-weight:600;color:var(--ink2)">/100</small></div><div class="nm">' + esc(i === 0 ? label(r) : names[i]) + '</div><div class="u">' + esc(r.meta.host || '') + '</div><span class="pill ' + r.band.id + '">' + esc(r.band.label) + '</span></div>';
+  }).join('') + '</div>';
+  var cats = {}; all.forEach(function (r) { r.cats.forEach(function (c) { cats[c.id] = c.name; }); });
+  var gridCols = 'minmax(0,1.2fr) repeat(' + all.length + ',minmax(0,1fr))';
+  h += '<div class="b3head" style="grid-template-columns:' + gridCols + '"><span></span>' + names.map(function (n, i) { return '<span>' + esc(i === 0 ? 'Εσύ' : n) + '</span>'; }).join('') + '</div>';
+  h += Object.keys(cats).map(function (id) {
+    return '<div class="b3cat" style="grid-template-columns:' + gridCols + '"><b>' + esc(cats[id]) + '</b>' + all.map(function (r) {
+      var c = r.cats.filter(function (x) { return x.id === id; })[0]; if (!c) return '<span class="hint">—</span>';
+      return '<div>' + meter(c.score, bandOf(c.score)) + '<span class="n">' + c.score + '</span></div>';
+    }).join('') + '</div>';
+  }).join('');
+  h += '<div class="split"><div class="col neg"><h2>Πού υστερείς <span class="badge">' + cmp.gaps.length + '</span></h2><div class="items">' +
+    (cmp.gaps.slice(0, 7).map(function (g) { var rv = names[g.rival + 1]; return '<details class="item fail" open><summary><span class="ic" aria-hidden="true">✕</span><span class="nm">' + esc(g.row.name) + '</span></summary><div class="body"><p><span class="lab">Εσύ: </span>' + esc(g.row.cells[0].ev) + '</p><p class="fixline"><span class="lab">' + esc(rv) + ': </span>' + esc(g.row.cells[g.rival + 1].ev) + '</p></div></details>'; }).join('') || '<p class="hint">Δεν υστερείς ουσιαστικά σε κάποιον έλεγχο.</p>') + '</div></div>' +
+    '<div class="col"><h2>Πού προηγείσαι <span class="badge">' + cmp.wins.length + '</span></h2><div class="items">' +
+    (cmp.wins.slice(0, 7).map(function (g) { var rv = names[g.rival + 1]; return '<details class="item pass"><summary><span class="ic" aria-hidden="true">✓</span><span class="nm">' + esc(g.row.name) + '</span></summary><div class="body"><p><span class="lab">Εσύ: </span>' + esc(g.row.cells[0].ev) + '</p><p><span class="lab">' + esc(rv) + ': </span>' + esc(g.row.cells[g.rival + 1].ev) + '</p></div></details>'; }).join('') || '<p class="hint">Δεν προηγείσαι ξεκάθαρα σε κάποιον έλεγχο.</p>') + '</div></div></div>';
+  return h;
+}
+function runBench() {
+  var b = state.bench; if (!b || b.loading) return;
+  b.loading = true; b.note = 'Αναλύουμε τους ανταγωνιστές…'; b.results = [null, null]; b.errors = [null, null]; renderBench();
+  var jobs = [0, 1].map(function (i) {
+    var u = (b.urls[i] || '').trim(); if (!u) return Promise.resolve();
+    return api({ url: u }).then(unwrap).then(function (r) { b.results[i] = r; }).catch(function (e) { b.errors[i] = e.message || 'Η ανάλυση απέτυχε.'; });
+  });
+  Promise.all(jobs).then(function () { b.loading = false; b.note = ''; renderBench(); });
+}
+document.addEventListener('click', function (e) {
+  var b = state.bench; if (!b || b.sample) return;
+  if (e.target.closest('#b-search')) { b.query = $('#b-q').value.trim(); if (b.query) discoverAndRun(); }
+  if (e.target.closest('#b-run')) { b.urls = [$('#b-u0').value, $('#b-u1').value]; b.names = ['', '']; b.provider = ''; runBench(); }
+  if (e.target.closest('#b-next')) { b.poolOff = (b.poolOff + 4) % Math.max(b.pool.length, 1); runFromPool(); }
+});
+
 /* ---------- εμφάνιση αναφοράς ---------- */
 function view(name) { $('#view-input').hidden = name !== 'input'; $('#view-report').hidden = name !== 'report'; window.scrollTo(0, 0); }
 $('#btn-back').addEventListener('click', function () { view('input'); });
@@ -1401,7 +1662,7 @@ function gbpHtml(g) {
 }
 function showReport() {
   var rep = state.report, h = '';
-  h += headHtml(rep) + (rep.cats.length ? catsHtml(rep) : '') + speedSlot(rep, 'speed-a', '');
+  h += headHtml(rep) + (rep.cats.length ? catsHtml(rep) : '') + speedSlot(rep, 'speed-a', '') + benchSlot(rep);
   if (rep.positives.length || rep.negatives.length) {
     h += '<div class="split"><div class="col"><h2>Τι δουλεύει <span class="badge">' + rep.positives.length + '</span></h2><div class="items">' +
       (rep.positives.map(function (i, n) { return itemHtml(i, false); }).join('') || '<p class="hint">Δεν βρέθηκε κάτι που να πληροί πλήρως τους ελέγχους.</p>') + '</div></div>' +
@@ -1422,7 +1683,7 @@ function showReport() {
       rep.pages.map(function (p) { var path = p.url; try { path = new URL(p.url).pathname || '/'; } catch (e) {} return '<tr><td class="mono">' + esc(path) + '</td><td>' + esc(p.title || '—') + '</td><td>' + p.words + '</td><td>' + p.h1 + '</td><td>' + (p.descLen ? p.descLen + ' χαρ.' : '—') + '</td></tr>'; }).join('') + '</tbody></table></div></section>';
   }
   h += limitsHtml(rep);
-  $('#report').innerHTML = h; view('report'); state.mode2 = 'report'; startSpeed('speed-a', '');
+  $('#report').innerHTML = h; view('report'); state.mode2 = 'report'; state.bench = null; startSpeed('speed-a', ''); startBench(rep);
   $('#live').textContent = 'Το check-up ολοκληρώθηκε. Βαθμός ' + rep.score + ' στα 100.';
 }
 function limitsHtml(rep) {
@@ -1458,7 +1719,7 @@ function showCompare() {
     return '<tr><td>' + esc(r.name) + '</td><td>' + cell(r.a, r.winner === 'a') + '</td><td>' + cell(r.b, r.winner === 'b') + '</td></tr>';
   }).join('') + '</tbody></table></div></section>';
   h += limitsHtml(A);
-  $('#report').innerHTML = h; view('report'); startSpeed('speed-a', 'Α'); startSpeed('speed-b', 'Β');
+  $('#report').innerHTML = h; view('report'); state.bench = null; startSpeed('speed-a', 'Α'); startSpeed('speed-b', 'Β');
   $('#live').textContent = 'Η σύγκριση ολοκληρώθηκε.';
 }
 

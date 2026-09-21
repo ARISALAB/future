@@ -14892,6 +14892,12 @@ var require_analyzer = __commonJS({
           Array.prototype.slice.call(clone.querySelectorAll("script,style,noscript,template,svg,iframe")).forEach(function(n) {
             if (n.parentNode) n.parentNode.removeChild(n);
           });
+          Array.prototype.slice.call(clone.querySelectorAll("a,li,p,h1,h2,h3,h4,h5,h6,div,span,button,td,th,label,option,section,article,header,footer,nav,br,dt,dd")).forEach(function(n) {
+            try {
+              n.appendChild(doc.createTextNode(" "));
+            } catch (e) {
+            }
+          });
           text = clean(clone.textContent);
         }
         var pText = clean(q("p").map(function(e) {
@@ -15889,7 +15895,7 @@ var require_analyzer = __commonJS({
         }, 0)));
         var band = score >= 80 ? { id: "good", label: "\u03A0\u03BF\u03BB\u03CD \u03BA\u03B1\u03BB\u03AE \u03B2\u03AC\u03C3\u03B7" } : score >= 60 ? { id: "ok", label: "\u039A\u03B1\u03BB\u03AE \u03B2\u03AC\u03C3\u03B7 \u03BC\u03B5 \u03BA\u03B5\u03BD\u03AC" } : score >= 40 ? { id: "mid", label: "\u03A7\u03C1\u03B5\u03B9\u03AC\u03B6\u03B5\u03C4\u03B1\u03B9 \u03B4\u03BF\u03C5\u03BB\u03B5\u03B9\u03AC" } : { id: "low", label: "\u03A3\u03BF\u03B2\u03B1\u03C1\u03AC \u03BA\u03B5\u03BD\u03AC" };
         var report = {
-          meta: { url: home.url, host: S.host, title: home.title, brand: S.brand, analyzedAt: new Date(S.now).toISOString(), pages: pages.length, mode: ctx.mode || "paste" },
+          meta: { url: home.url, host: S.host, title: home.title, brand: S.brand, analyzedAt: new Date(S.now).toISOString(), pages: pages.length, mode: ctx.mode || "paste", hints: { title: home.title, h1: home.h1[0] || "", desc: home.desc || "", brand: S.brand, text: (home.title + " " + (home.desc || "") + " " + home.h1.join(" ") + " " + S.union.text).slice(0, 4e3), locality: localityOf(home) } },
           score,
           band,
           cats,
@@ -16012,6 +16018,185 @@ var require_analyzer = __commonJS({
           note: "\u0391\u03C0\u03CC \u03C4\u03BF Places API \u03C4\u03B7\u03C2 Google. \u039F\u03B9 \u03C6\u03C9\u03C4\u03BF\u03B3\u03C1\u03B1\u03C6\u03AF\u03B5\u03C2 \u03BA\u03B1\u03C4\u03B1\u03BC\u03B5\u03C4\u03C1\u03BF\u03CD\u03BD\u03C4\u03B1\u03B9 \u03AD\u03C9\u03C2 10 \u03BA\u03B1\u03B9 \u03B4\u03B5\u03BD \u03C6\u03B1\u03AF\u03BD\u03BF\u03BD\u03C4\u03B1\u03B9 \u03C0\u03C1\u03BF\u03B2\u03BF\u03BB\u03AD\u03C2, \u03BA\u03BB\u03AE\u03C3\u03B5\u03B9\u03C2 \u03AE \u03B5\u03C1\u03C9\u03C4\u03AE\u03BC\u03B1\u03C4\u03B1 \u03B1\u03BD\u03B1\u03B6\u03AE\u03C4\u03B7\u03C3\u03B7\u03C2."
         };
       }
+      var OSM_CATS = [
+        [/συμβουλ|consult/, ["office=consulting"]],
+        [/κατασκευη ιστοσελιδ|web design|web development|digital agency|διαφημιστικ/, ["office=it", "office=advertising_agency"]],
+        [/αγγλικ|language school|φροντιστ|ξενων γλωσσων/, ["amenity=language_school", "amenity=school"]],
+        [/εστιατορι|ταβερν|μεζεδ|restaurant|taverna/, ["amenity=restaurant"]],
+        [/καφε|cafe|coffee/, ["amenity=cafe"]],
+        [/ξενοδοχ|hotel|καταλυμ|δωματι|guest ?house|apartments/, ["tourism=hotel", "tourism=guest_house", "tourism=apartment"]],
+        [/οδοντιατρ|dentist|dental/, ["amenity=dentist"]],
+        [/δικηγορ|lawyer|law firm/, ["office=lawyer"]],
+        [/λογιστ|accountant|φοροτεχν/, ["office=accountant"]],
+        [/κομμωτηρ|hairdresser|barber/, ["shop=hairdresser"]],
+        [/γυμναστηρ|gym\b|fitness/, ["leisure=fitness_centre"]],
+        [/φαρμακει|pharmacy/, ["amenity=pharmacy"]],
+        [/κτηνιατρ|veterinar/, ["amenity=veterinary"]],
+        [/αρχιτεκτ|architect|μηχανικ/, ["office=architect", "office=engineer"]]
+      ];
+      function osmFilters(hints) {
+        var t = normGr([hints && hints.title, hints && hints.h1, hints && hints.desc].join(" "));
+        for (var i = 0; i < OSM_CATS.length; i++) {
+          if (OSM_CATS[i][0].test(t)) return OSM_CATS[i][1];
+        }
+        return [];
+      }
+      var STOP = new Set("english espanol deutsch francais italiano \u03BA\u03B1\u03B9 \u03B3\u03B9\u03B1 \u03C3\u03C4\u03B7\u03BD \u03C3\u03C4\u03BF\u03BD \u03C3\u03C4\u03BF \u03C3\u03C4\u03B9\u03C2 \u03C3\u03C4\u03BF\u03C5\u03C2 \u03C4\u03C9\u03BD \u03C4\u03BF\u03C5 \u03C4\u03B7\u03C2 \u03C4\u03BF\u03C5\u03C2 \u03C4\u03BF\u03BD \u03C4\u03B7\u03BD \u03B1\u03C0\u03CC \u03C0\u03C1\u03BF\u03C2 \u03C3\u03B1\u03C2 \u03BC\u03B1\u03C2 \u03C3\u03BF\u03C5 \u03B5\u03C3\u03B5\u03B9\u03C2 \u03B5\u03BC\u03B5\u03B9\u03C2 \u03B5\u03B9\u03BD\u03B1\u03B9 \u03B5\u03C7\u03B5\u03B9 \u03B5\u03C7\u03BF\u03C5\u03BC\u03B5 \u03BC\u03C0\u03BF\u03C1\u03B5\u03B9 \u03BF\u03BB\u03B1 \u03BF\u03BB\u03B5\u03C2 \u03C0\u03B9\u03BF \u03C0\u03BF\u03BB\u03C5 \u03BF\u03C0\u03C9\u03C2 \u03B1\u03C5\u03C4\u03BF \u03B1\u03C5\u03C4\u03B7 \u03B1\u03C5\u03C4\u03B1 \u03B1\u03C5\u03C4\u03B5\u03C2 \u03B5\u03BD\u03B1 \u03BC\u03B9\u03B1 \u03BC\u03B9\u03B1\u03C2 \u03B5\u03BD\u03BF\u03C2 \u03C3\u03C4\u03B7\u03BD \u03C3\u03C4\u03BF\u03C5\u03C2 \u03BF\u03BC\u03C9\u03C2 \u03B5\u03C0\u03B9\u03C3\u03B7\u03C2 \u03BA\u03B1\u03B8\u03B5 \u03C3\u03C7\u03B5\u03C4\u03B9\u03BA\u03B1 \u03C5\u03C0\u03B7\u03C1\u03B5\u03C3\u03B9\u03B5\u03C2 \u03B5\u03C0\u03B9\u03BA\u03BF\u03B9\u03BD\u03C9\u03BD\u03B9\u03B1 \u03B1\u03C1\u03C7\u03B9\u03BA\u03B7 the and for with your our you that this from are have".split(" ").map(function(w) {
+        return normGr(w);
+      }));
+      function keywordQuery(text, brand, n) {
+        var bt = normGr(brand).match(new RegExp("\\p{L}+", "gu")) || [], freq = {}, first = {};
+        (String(text || "").match(new RegExp("\\p{L}{5,}", "gu")) || []).forEach(function(w) {
+          var k = normGr(w);
+          if (STOP.has(k) || bt.indexOf(k) >= 0) return;
+          var st = k.slice(0, 6);
+          freq[st] = (freq[st] || 0) + 1;
+          if (!first[st]) first[st] = w;
+        });
+        return Object.keys(freq).sort(function(a, b) {
+          return freq[b] - freq[a];
+        }).slice(0, n || 4).map(function(k) {
+          return first[k];
+        }).join(" ");
+      }
+      function buildQuery(hints, brand, city) {
+        hints = hints || {};
+        function strip(x) {
+          x = clean(x);
+          if (brand) x = x.replace(new RegExp(brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "ig"), " ");
+          return clean(x.replace(/[|–—:]+/g, " ").replace(/\s-\s/g, " "));
+        }
+        var cand = [hints.h1, hints.title, hints.desc].map(strip).filter(function(x) {
+          return len(x) >= 12;
+        });
+        var base = (cand[0] || "").split(/\s+/).slice(0, 8).join(" ");
+        if (!base) base = keywordQuery((hints.text || "").slice(0, 1500), brand, 4);
+        if (city && base && normGr(base).indexOf(normGr(city)) < 0) base += " " + city;
+        return clean(base);
+      }
+      var BLOCK_HOSTS = [/(^|\.)(facebook|fb|instagram|linkedin|youtube|youtu|tiktok|pinterest|wikipedia|wikimedia|tripadvisor|booking|airbnb|expedia|yelp|foursquare|trustpilot|glassdoor|indeed|reddit|quora|medium|amazon|ebay)\./i, /(^|\.)(x|twitter)\.com$/i, /(^|\.)google\./i, /(^|\.)(skroutz|vrisko|xo|11888|yellowpages|athinorama|efood|wolt|e-forologia|kariera|olx|bazaraki|spitogatos|xe|jooble)\.gr$/i, /(blogspot|wordpress|wixsite|weebly)\.com$/i, /(^|\.)(gov|edu)\.gr$/i, /(^|\.)europa\.eu$/i];
+      var LISTICLE = /(top|best)\s*\d*|τα\s*\d+\s+καλυτερ|καλυτερα|οδηγοσ|κριτικεσ|reviews|\bvs\b|λιστα|συγκριση|τιμεσ/i;
+      function filterCandidates(cands, excludeHost) {
+        var ex = String(excludeHost || "").replace(/^www\./, ""), seen = {}, out = [];
+        (cands || []).forEach(function(c) {
+          var u;
+          try {
+            u = new URL(c.url);
+          } catch (e) {
+            return;
+          }
+          if (!/^https?:$/.test(u.protocol)) return;
+          var h = u.hostname.replace(/^www\./, "");
+          if (!h || h === ex || seen[h]) return;
+          if (BLOCK_HOSTS.some(function(re) {
+            return re.test(h);
+          })) return;
+          if (/\/(blog|news|article|articles|category|tag|forum|wiki|tags)\b/i.test(u.pathname) || LISTICLE.test(normGr(c.name || ""))) return;
+          seen[h] = 1;
+          out.push({ url: u.origin + "/", name: clean(c.name || h).slice(0, 80), source: c.source || "" });
+        });
+        return out;
+      }
+      var CITIES = [[/αθηνα|athens|αγιου δημητριου|μαρουσι|περιστερι|πειραια|γλυφαδα|κηφισια/, "\u0391\u03B8\u03AE\u03BD\u03B1"], [/θεσσαλονικ|thessaloniki/, "\u0398\u03B5\u03C3\u03C3\u03B1\u03BB\u03BF\u03BD\u03AF\u03BA\u03B7"], [/πατρα/, "\u03A0\u03AC\u03C4\u03C1\u03B1"], [/ηρακλει|κρητη|χανια|ρεθυμν/, "\u039A\u03C1\u03AE\u03C4\u03B7"], [/ροδο|rhodes/, "\u03A1\u03CC\u03B4\u03BF\u03C2"], [/κερκυρα|corfu/, "\u039A\u03AD\u03C1\u03BA\u03C5\u03C1\u03B1"], [/μυκον|σαντορινη|santorini|κυκλαδ/, "\u039A\u03C5\u03BA\u03BB\u03AC\u03B4\u03B5\u03C2"], [/λαρισα/, "\u039B\u03AC\u03C1\u03B9\u03C3\u03B1"], [/βολο/, "\u0392\u03CC\u03BB\u03BF\u03C2"], [/ιωαννινα/, "\u0399\u03C9\u03AC\u03BD\u03BD\u03B9\u03BD\u03B1"]];
+      function localityOf(h) {
+        var ld = (h.ld || []).map(function(n) {
+          return n && n.address && (n.address.addressLocality || "");
+        }).filter(Boolean)[0];
+        return ld || "";
+      }
+      function guessCity(hints) {
+        hints = hints || {};
+        var t = normGr((hints.locality || "") + " " + (hints.text || ""));
+        for (var i = 0; i < CITIES.length; i++) {
+          if (CITIES[i][0].test(t)) return CITIES[i][1];
+        }
+        return "";
+      }
+      function guessCategory(bench, hints) {
+        var t = normGr(hints && hints.text || ""), best = null, bs = 0;
+        bench.categories.forEach(function(c) {
+          var m = t.match(new RegExp(c.re, "g")), n = m ? m.length : 0;
+          if (c.id === "consulting") n *= 3;
+          if (n > bs) {
+            bs = n;
+            best = c.id;
+          }
+        });
+        return bs >= 3 ? best : null;
+      }
+      function pickCompetitors(bench, cat, city, excludeHost, n, offset) {
+        var ex = String(excludeHost || "").replace(/^www\./, "");
+        var c = bench.sites.filter(function(x) {
+          return x.cat === cat && hostOf(x.url) !== ex;
+        });
+        c = c.map(function(x, i) {
+          return { x, i, pri: city && x.city === city ? 0 : 1 };
+        }).sort(function(a, b) {
+          return a.pri - b.pri || a.i - b.i;
+        }).map(function(o) {
+          return o.x;
+        });
+        var off = c.length ? (offset || 0) % c.length : 0;
+        c = c.slice(off).concat(c.slice(0, off));
+        return c.slice(0, n || 2);
+      }
+      function compareMany(me, others) {
+        function byId(rep) {
+          var m = {};
+          rep.positives.concat(rep.negatives).forEach(function(i) {
+            m[i.id] = i;
+          });
+          return m;
+        }
+        var M = byId(me), O = others.map(byId), ids = {};
+        [M].concat(O).forEach(function(m) {
+          Object.keys(m).forEach(function(k) {
+            ids[k] = 1;
+          });
+        });
+        var order = {};
+        CATS.forEach(function(c, i) {
+          order[c.id] = i;
+        });
+        var rows = Object.keys(ids).map(function(id) {
+          var ref = M[id] || O.map(function(o) {
+            return o[id];
+          }).filter(Boolean)[0];
+          return { id, name: ref.name, cat: ref.cat, w: ref.w, cells: [M[id]].concat(O.map(function(o) {
+            return o[id];
+          })).map(function(c) {
+            return c ? { status: c.status, s: c.s, ev: c.evidence && c.evidence[0] || "" } : null;
+          }) };
+        }).sort(function(x, y) {
+          return order[x.cat] - order[y.cat] || y.w - x.w;
+        });
+        var gaps = [], wins = [];
+        rows.forEach(function(r) {
+          var mine = r.cells[0];
+          if (!mine) return;
+          var best = -1, bi = -1;
+          r.cells.slice(1).forEach(function(c, i) {
+            if (c && c.s > best) {
+              best = c.s;
+              bi = i;
+            }
+          });
+          if (bi < 0) return;
+          var d = best - mine.s;
+          if (d >= 0.3) gaps.push({ row: r, rival: bi, diff: d });
+          else if (-d >= 0.3) wins.push({ row: r, rival: bi, diff: -d });
+        });
+        function key(g) {
+          return g.row.w * g.diff;
+        }
+        gaps.sort(function(a, b) {
+          return key(b) - key(a);
+        });
+        wins.sort(function(a, b) {
+          return key(b) - key(a);
+        });
+        return { rows, gaps, wins };
+      }
       function compareReports(A, B) {
         var map = {};
         function put(rep, key) {
@@ -16103,7 +16288,7 @@ var require_analyzer = __commonJS({
         var doc = new DOMParser().parseFromString(html, "text/html");
         return analyzeSite([{ doc, url: opts.url || "", html, size: html.length }], { mode: "paste", now: opts.now });
       }
-      return { psiUrl, parsePagespeed, CATS, CHECKS, extract, analyzeSite, analyzeHtml, analyzeGbp, compareReports, PASS, WARN };
+      return { osmFilters, buildQuery, filterCandidates, guessCategory, guessCity, pickCompetitors, compareMany, psiUrl, parsePagespeed, CATS, CHECKS, extract, analyzeSite, analyzeHtml, analyzeGbp, compareReports, PASS, WARN };
     });
   }
 });
@@ -16300,9 +16485,88 @@ async function searchPlaces(name) {
     gbp: { displayName: p.displayName, formattedAddress: p.formattedAddress, websiteUri: p.websiteUri, nationalPhoneNumber: p.nationalPhoneNumber, rating: p.rating, userRatingCount: p.userRatingCount, primaryTypeDisplayName: p.primaryTypeDisplayName, regularOpeningHours: p.regularOpeningHours ? true : false, photos: (p.photos || []).map(() => 1), googleMapsUri: p.googleMapsUri, businessStatus: p.businessStatus }
   }));
 }
+var CONTACT = process.env.CONTACT_EMAIL || "contact@example.com";
+var OSM_UA = "CheckupBot/1.0 (" + CONTACT + ")";
+async function withTimeout(promise, ms, label) {
+  let t;
+  const timeout = new Promise((_, rej) => {
+    t = setTimeout(() => rej(new Error(label + ": \u03C7\u03C1\u03BF\u03BD\u03B9\u03BA\u03CC \u03CC\u03C1\u03B9\u03BF")), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(t);
+  }
+}
+async function tavilySearch(query) {
+  const res = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer " + process.env.TAVILY_API_KEY },
+    body: JSON.stringify({ query, search_depth: "basic", max_results: 15, include_answer: false })
+  });
+  if (!res.ok) throw new Error("Tavily HTTP " + res.status);
+  const j = await res.json();
+  return (j.results || []).map((r) => ({ url: r.url, name: r.title, source: "tavily" }));
+}
+async function placesQuery(query) {
+  const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": process.env.GOOGLE_PLACES_API_KEY, "X-Goog-FieldMask": "places.displayName,places.websiteUri" },
+    body: JSON.stringify({ textQuery: query.slice(0, 200), languageCode: "el", regionCode: "GR", maxResultCount: 10 })
+  });
+  if (!res.ok) throw new Error("Places HTTP " + res.status);
+  const j = await res.json();
+  return (j.places || []).filter((p) => p.websiteUri).map((p) => ({ url: p.websiteUri, name: p.displayName && p.displayName.text, source: "places" }));
+}
+async function osmSearch(city, filters2) {
+  const g = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(city + ", \u0395\u03BB\u03BB\u03AC\u03B4\u03B1"), { headers: { "user-agent": OSM_UA, "accept-language": "el" } });
+  if (!g.ok) throw new Error("Nominatim HTTP " + g.status);
+  const geo = await g.json();
+  if (!geo[0]) return [];
+  const parts = filters2.map((f) => {
+    const [k, v] = f.split("=");
+    return `nwr["${k}"="${v}"]["website"](around:6000,${geo[0].lat},${geo[0].lon});`;
+  }).join("");
+  const q = `[out:json][timeout:12];(${parts});out tags 80;`;
+  const r = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": OSM_UA }, body: "data=" + encodeURIComponent(q) });
+  if (!r.ok) throw new Error("Overpass HTTP " + r.status);
+  const j = await r.json();
+  return (j.elements || []).map((e) => {
+    const t = e.tags || {};
+    const site = t.website || t["contact:website"];
+    return site ? { url: /^https?:/i.test(site) ? site : "https://" + site, name: t.name || site, source: "osm", score: Object.keys(t).length + (t.phone || t["contact:phone"] ? 2 : 0) + (t.opening_hours ? 2 : 0) } : null;
+  }).filter(Boolean).sort((a, b) => b.score - a.score);
+}
+async function discover(body) {
+  const query = String(body.query || "").slice(0, 160).trim();
+  const city = String(body.city || "").slice(0, 60).trim();
+  const host = String(body.host || "");
+  const hints = { title: body.title, h1: body.h1, desc: body.desc };
+  const tried = [];
+  let cands = [], provider = "";
+  const attempts = [];
+  if (process.env.TAVILY_API_KEY && query) attempts.push(["tavily", () => tavilySearch(query)]);
+  if (process.env.GOOGLE_PLACES_API_KEY && query) attempts.push(["places", () => placesQuery(query)]);
+  const filters2 = city ? Checkup.osmFilters(hints) : [];
+  if (city && filters2.length) attempts.push(["osm", () => osmSearch(city, filters2)]);
+  for (const [name, fn] of attempts) {
+    try {
+      const raw = await withTimeout(fn(), name === "osm" ? 7500 : 5e3, name);
+      cands = Checkup.filterCandidates(raw, host);
+      tried.push(name + ": " + cands.length);
+      if (cands.length >= 2) {
+        provider = name;
+        break;
+      }
+    } catch (e) {
+      tried.push(name + ": " + e.message);
+    }
+  }
+  return { ok: true, provider, query, city, candidates: cands.slice(0, 8), tried };
+}
 var hits = /* @__PURE__ */ new Map();
 function rateLimited(ip) {
-  const now = Date.now(), win = 60 * 1e3, max = 12;
+  const now = Date.now(), win = 60 * 1e3, max = 30;
   const arr = (hits.get(ip) || []).filter((t) => now - t < win);
   arr.push(now);
   hits.set(ip, arr);
@@ -16313,7 +16577,7 @@ var reply = (code, obj) => ({ statusCode: code, headers: H, body: JSON.stringify
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: H, body: "" };
   const qs = event.queryStringParameters || {};
-  if (event.httpMethod === "GET" && qs.ping) return reply(200, { ok: true, places: !!process.env.GOOGLE_PLACES_API_KEY, psiKey: process.env.PAGESPEED_API_KEY || "" });
+  if (event.httpMethod === "GET" && qs.ping) return reply(200, { ok: true, places: !!process.env.GOOGLE_PLACES_API_KEY, psiKey: process.env.PAGESPEED_API_KEY || "", discover: { tavily: !!process.env.TAVILY_API_KEY, places: !!process.env.GOOGLE_PLACES_API_KEY, osm: true } });
   if (event.httpMethod !== "POST") return reply(405, { ok: false, error: "\u039C\u03AD\u03B8\u03BF\u03B4\u03BF\u03C2 \u03BC\u03B7 \u03B5\u03C0\u03B9\u03C4\u03C1\u03B5\u03C0\u03C4\u03AE." });
   const ip = event.headers && (event.headers["x-nf-client-connection-ip"] || event.headers["x-forwarded-for"]) || "unknown";
   if (rateLimited(ip)) return reply(429, { ok: false, error: "\u03A0\u03BF\u03BB\u03BB\u03AC \u03B1\u03B9\u03C4\u03AE\u03BC\u03B1\u03C4\u03B1. \u0394\u03BF\u03BA\u03AF\u03BC\u03B1\u03C3\u03B5 \u03BE\u03B1\u03BD\u03AC \u03C3\u03B5 \u03AD\u03BD\u03B1 \u03BB\u03B5\u03C0\u03C4\u03CC." });
@@ -16324,6 +16588,7 @@ exports.handler = async (event) => {
     return reply(400, { ok: false, error: "\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03BF \u03B1\u03AF\u03C4\u03B7\u03BC\u03B1." });
   }
   try {
+    if (body.action === "competitors") return reply(200, await discover(body));
     if (body.name && !body.url) return reply(200, { ok: true, candidates: await searchPlaces(body.name) });
     const report = await analyzeUrl(body.url, { gbp: body.gbp });
     return reply(200, { ok: true, report });
@@ -16332,4 +16597,4 @@ exports.handler = async (event) => {
     return reply(200, { ok: false, error: msg });
   }
 };
-exports._internals = { analyzeUrl, isPrivateIp, normalizeUrl, pickInternalPages, searchPlaces };
+exports._internals = { discover, analyzeUrl, isPrivateIp, normalizeUrl, pickInternalPages, searchPlaces };

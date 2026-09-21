@@ -22,6 +22,13 @@ async def main():
         await pg.wait_for_selector('.speed .big', timeout=8000)
         print('speed:', await pg.inner_text('.speed .big'), '| opp:', await pg.locator('.speed .wins li').count(), '| copy cat:', await pg.locator('text=Ποιότητα κειμένου').count())
         await pg.screenshot(path='test/e2e-speed.png', full_page=True)
+        await pg.wait_for_selector('#bench .b3 .card >> nth=2', timeout=20000)
+        print('AUTO bench cards:', await pg.locator('#bench .b3 .card').count(), '| provider text:', (await pg.inner_text('#bench .hint'))[:60], '| query:', await pg.input_value('#b-q'), '| next btn:', await pg.locator('#b-next').count())
+        await pg.screenshot(path='test/e2e-auto.png', full_page=True)
+        await pg.fill('#b-u0', f'http://127.0.0.1:{site}/good'); await pg.fill('#b-u1', f'http://127.0.0.1:{site}/'); await pg.click('#b-run')
+        await pg.wait_for_selector('#bench .b3 .card >> nth=2', timeout=15000)
+        print('bench cards live:', await pg.locator('#bench .b3 .card').count(), '| gaps badge:', (await pg.inner_text('#bench .col.neg h2')).replace('\n',' '))
+        await pg.screenshot(path='test/e2e-bench.png', full_page=True)
         state['mode']='429'
         await pg.click('#btn-back'); await pg.fill('#q-a', f'http://127.0.0.1:{site}/'); await pg.click('#go'); await pg.wait_for_selector('.speed .note', timeout=8000)
         print('429 msg:', (await pg.inner_text('.speed .note'))[:70]); state['mode']='ok'
