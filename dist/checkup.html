@@ -189,7 +189,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
 .narr h3{ font-size:1.15rem; font-weight:800; } .narr h4{ margin-top:.9rem; font-size:1rem; font-weight:600; }
 .narr .hl{ font-weight:600; margin-top:.3rem; } .narr ul{ margin:.4rem 0 0; padding-left:1.1rem; display:grid; gap:.45rem; }
 .narr .fx{ display:block; color:var(--teal); font-size:.92rem; margin-top:.1rem; }
-.more-diff{ margin-top:1.2rem; } .more-diff > summary{ cursor:pointer; font-weight:600; color:var(--teal); }
+.src{ color:var(--ink2); font-size:.85rem; } .more-diff{ margin-top:1.2rem; } .more-diff > summary{ cursor:pointer; font-weight:600; color:var(--teal); }
 
 .story{ margin-top:.8rem; padding:1rem 1.2rem; background:var(--card); border:1px dashed var(--line2); border-radius:12px; font-size:1.05rem; line-height:1.65; }
 .story p{ margin:0 0 .8rem; } .story p:last-child{ margin-bottom:0; } .story:focus{ outline:3px solid var(--teal); outline-offset:2px; }
@@ -355,13 +355,74 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
     if (mo < 24) return 'πριν ' + mo + ' ' + (mo === 1 ? 'μήνα' : 'μήνες');
     var y = Math.floor(mo / 12); return 'πριν ' + y + ' ' + (y === 1 ? 'χρόνο' : 'χρόνια');
   }
-  function sentenceWith(text, re) {
-    var m = re.exec(text); if (!m) return '';
-    var i = m.index, start = 0, end = text.length, k, a;
+  function sentenceAt(text, i) {
+    var start = 0, end = text.length, k, a;
     ['. ', '! ', '? ', '· ', '; '].forEach(function (sep) { a = text.lastIndexOf(sep, i); if (a >= 0 && a + 2 > start && a < i) start = a + 2; });
     ['. ', '! ', '? ', '· ', '; '].forEach(function (sep) { k = text.indexOf(sep, i); if (k >= 0 && k + 1 < end) end = k + 1; });
-    return short(text.slice(start, end), 190);
+    if (end - start > 220) {
+      start = Math.max(start, i - 70); end = Math.min(end, i + 130);
+      var sp = text.indexOf(' ', start); if (start > 0 && sp >= 0 && sp < i) start = sp + 1;
+      var ep = text.lastIndexOf(' ', end); if (ep > i) end = ep;
+    }
+    return short(text.slice(start, end), 200);
   }
+  function sentenceWith(text, re) { var m = re.exec(text); return m ? sentenceAt(text, m.index) : ''; }
+
+  // ---------- λειτουργίες που περιγράφει ένα site (λεξικό· επεκτείνεται εύκολα) ----------
+  // g: ομάδα, w: βάρος (3 = βασική λειτουργία του κλάδου, 1 = γενική), re: regex σε κείμενο χωρίς τόνους
+  var CAPS = [
+    { id: 'trial', g: 'generic', w: 1, name: 'Δωρεάν δοκιμή ή demo', re: /δωρεαν δοκιμη|free trial|δοκιμαστε δωρεαν|ζητηστε demo|\bdemo\b|δωρεαν δοκιμαστικ/ },
+    { id: 'guarantee', g: 'generic', w: 1, name: 'Εγγύηση ή επιστροφή χρημάτων', re: /εγγυηση|εγγυημεν|money[- ]back|επιστροφη χρηματων|guarantee/ },
+    { id: 'support', g: 'generic', w: 1, name: 'Υποστήριξη πελατών', re: /υποστηριξη|help ?desk|εξυπηρετηση πελατων|customer support|live chat/ },
+    { id: 'multilang', g: 'generic', w: 1, name: 'Πολλές γλώσσες', re: /πολυγλωσσ|multi-?lingual|\d+\s+γλωσσ/ },
+    { id: 'integrations', g: 'generic', w: 2, name: 'Ενσωματώσεις με άλλα συστήματα', re: /ενσωματωσ|συνδεεται με|integrat|\bapi\b|συμβατ/ },
+    { id: 'mobile', g: 'generic', w: 2, name: 'Εφαρμογή για κινητό', re: /εφαρμογη για κινητο|mobile app|app store|google play|εφαρμογη ios|εφαρμογη android/ },
+    { id: 'payments', g: 'generic', w: 2, name: 'Online πληρωμές ή προκαταβολές', re: /online πληρωμ|πληρωμη με καρτα|stripe|paypal|viva ?wallet|ηλεκτρονικ\w* πληρωμ|προπληρωμ|προκαταβολ|\bdeposit/ },
+    { id: 'notifications', g: 'generic', w: 2, name: 'Ειδοποιήσεις SMS/email', re: /\bsms\b|υπενθυμισ|reminders?|ειδοποιησεισ (sms|email|πελατ)|notifications?/ },
+    { id: 'reports', g: 'generic', w: 2, name: 'Αναφορές και στατιστικά', re: /στατιστικ|analytics|reports?\b|dashboard|αναφορεσ και/ },
+    { id: 'security', g: 'generic', w: 1, name: 'Ασφάλεια δεδομένων / GDPR', re: /gdpr|ασφαλεια δεδομενων|κρυπτογραφησ|προστασια προσωπικων/ },
+    { id: 'plans', g: 'generic', w: 1, name: 'Πακέτα και τιμές', re: /πακετα|τιμολογηση|από \d+\s?€|apo \d+\s?€|\d+\s?€\s?\/\s?(μηνα|month)|pricing plans?/ },
+    { id: 'nocommit', g: 'generic', w: 2, name: 'Χωρίς προμήθεια ή δέσμευση', re: /χωρις προμηθει|χωρις δεσμευση|no commission|cancel anytime|χωρις συμβολαιο|χωρις κρυφεσ χρεωσεισ/ },
+    { id: 'clients', g: 'generic', w: 1, name: 'Αριθμός πελατών ή αναφορές', re: /εμπιστευονται|trusted by|\d[\d.]*\+?\s*(πελατ|εστιατορι|επιχειρησ|ξενοδοχει|customers|clients)/ },
+    { id: 'experience', g: 'generic', w: 1, name: 'Χρόνια εμπειρίας', re: /\d+\+?\s*χρονια (εμπειρι|στην αγορα|λειτουργι)|\d+\+?\s*years|απο το (19|20)\d{2}/ },
+    // εστίαση / φιλοξενία
+    { id: 'reservations', g: 'hospitality', w: 3, name: 'Online κρατήσεις τραπεζιών', re: /online κρατησ|κρατησεισ τραπεζι|κρατηση τραπεζιου|table reservations?|online booking|reservations? online/ },
+    { id: 'tableplan', g: 'hospitality', w: 3, name: 'Διαχείριση τραπεζιών και κάτοψη', re: /κατοψη|table (plan|management)|διαχειριση τραπεζι|floor plan|χαρτησ τραπεζι/ },
+    { id: 'waitlist', g: 'hospitality', w: 3, name: 'Λίστα αναμονής', re: /λιστα αναμονησ|waitlist|waiting list/ },
+    { id: 'widget', g: 'hospitality', w: 3, name: 'Φόρμα κρατήσεων μέσα στο δικό σου site', re: /widget|φορμα κρατησεων στο|ενσωματωσ\w* (στο|στην) (site|ιστοσελιδα|ιστοτοπο)|embed/ },
+    { id: 'googlereserve', g: 'hospitality', w: 3, name: 'Κρατήσεις από Google ή social', re: /reserve with google|κρατηση απο google|κρατησεισ απο google|instagram|κρατησεισ απο facebook/ },
+    { id: 'guestcrm', g: 'hospitality', w: 3, name: 'Βάση πελατών (CRM)', re: /\bcrm\b|βαση πελατων|προφιλ πελατ|guest (database|profiles?)/ },
+    { id: 'qrmenu', g: 'hospitality', w: 2, name: 'Ψηφιακό μενού με QR', re: /\bqr\b/ },
+    { id: 'pos', g: 'hospitality', w: 3, name: 'Σύνδεση με ταμείο (POS)', re: /\bpos\b|ταμειακ|συνδεση με ταμειο/ },
+    { id: 'orders', g: 'hospitality', w: 2, name: 'Παραγγελίες ή delivery', re: /delivery|takeaway|παραγγελιες online|διανομη/ },
+    { id: 'noshow', g: 'hospitality', w: 3, name: 'Μείωση των no-show', re: /no[- ]?shows?|μη προσελευσ|μειωση των ακυρωσεων/ },
+    // εκπαίδευση και πιστοποιήσεις
+    { id: 'asep', g: 'education', w: 3, name: 'Αναγνώριση ΑΣΕΠ και μοριοδότηση', re: /ασεπ|μοριοδοτ/ },
+    { id: 'onlineexam', g: 'education', w: 3, name: 'Online εξέταση από το σπίτι', re: /online εξετασ|τηλεξετασ|εξ αποστασεωσ|εξετασεισ online|εξεταση απο το σπιτι/ },
+    { id: 'retake', g: 'education', w: 3, name: 'Δωρεάν επανεξέταση', re: /επανεξετασ|retake/ },
+    { id: 'quickresults', g: 'education', w: 3, name: 'Γρήγορα αποτελέσματα', re: /αποτελεσματα (σε|εντος|μετα)|αμεσα αποτελεσματα|immediate results|πτυχιο σε \d+|σε \d+ (ημερεσ|εργασιμεσ)/ },
+    { id: 'payafter', g: 'education', w: 3, name: 'Πληρωμή μετά την επιτυχία', re: /πληρωμη μετα την επιτυχια|πληρωνεστε μετα|pay after/ },
+    { id: 'lifetime', g: 'education', w: 2, name: 'Ισχύς εφ’ όρου ζωής', re: /εφ ορου ζωης|δια βιου ισχυ|lifetime valid|ισχυ δια βιου/ },
+    { id: 'mocktests', g: 'education', w: 2, name: 'Δείγματα και τεστ προσομοίωσης', re: /δειγματα|προσομοιωσ|mock tests?|practice tests?|δωρεαν τεστ/ },
+    // συμβουλευτική
+    { id: 'costing', g: 'consulting', w: 3, name: 'Κοστολόγηση μενού', re: /κοστολογ|menu engineering|food cost/ },
+    { id: 'training', g: 'consulting', w: 3, name: 'Εκπαίδευση προσωπικού', re: /εκπαιδευση (του )?προσωπικου|staff training|εκπαιδευση ομαδασ|εκπαιδευση ομαδων/ },
+    { id: 'bizplan', g: 'consulting', w: 3, name: 'Επιχειρηματικό πλάνο και μελέτες βιωσιμότητας', re: /επιχειρηματικο (σχεδιο|πλανο)|business plan|μελετη βιωσιμοτητασ|μελετεσ βιωσιμοτητασ|οικονομοτεχνικ/ },
+    { id: 'funding', g: 'consulting', w: 3, name: 'Χρηματοδότηση και επιδοτήσεις', re: /επιδοτησ|εσπα|χρηματοδοτ|leader/ },
+    { id: 'concept', g: 'consulting', w: 3, name: 'Σχεδιασμός concept νέας επιχείρησης', re: /concept|νεου εστιατοριου|σχεδιασμοσ (νεασ )?επιχειρησησ|εγκαινι/ },
+    { id: 'licences', g: 'consulting', w: 3, name: 'Άδειες και νομιμοποίηση', re: /αδει(α|εσ) (λειτουργι|καταστημ)|νομιμοποιησ|υγειονομικ/ }
+  ];
+  CAPS.forEach(function (c) { c.re = new RegExp(c.re.source.replace(/ς/g, 'σ')); }); // το κείμενο κανονικοποιείται με τελικό σ
+  function detectCaps(mainText, rawText) {
+    var nt = normGr(mainText), same = nt.length === mainText.length, out = {};
+    CAPS.forEach(function (c) {
+      var m = c.re.exec(nt); if (!m) return;
+      out[c.id] = same ? sentenceAt(mainText, m.index) : sentenceAt(nt, m.index);
+    });
+    return out;
+  }
+  var FEAT_SKIP = /^(αρχικη|home|επικοινωνια|contact|σχετικα|about|menu|μενου|υπηρεσιες|services|blog|news|πολιτικη|οροι|privacy|cookies|newsletter|follow|ακολουθηστε|copyright|search|αναζητηση|login|εγγραφη|γιατι|why)/;
+
   function COVID_RE_G() { return new RegExp(COVID_RE.source, 'i'); }
   function STALE_RE_G() { return new RegExp(STALE_RE.source, 'i'); }
   function whereText(path) { return path === '/' ? 'Στην αρχική σελίδα' : 'Στη σελίδα ' + path; }
@@ -437,6 +498,29 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
       text = clean(clone.textContent);
     }
     var pText = clean(q('p').map(spaced).join(' '));
+    var mainText = '';
+    if (body) {
+      var c2 = body.cloneNode(true);
+      Array.prototype.slice.call(c2.querySelectorAll('script,style,noscript,template,svg,iframe,nav,header,footer,aside')).forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+      Array.prototype.slice.call(c2.querySelectorAll('a,li,p,h1,h2,h3,h4,h5,h6,div,span,button,td,th,label,option,section,article,br,dt,dd')).forEach(function (n) { try { n.appendChild(doc.createTextNode(' ')); if (n.parentNode) n.parentNode.insertBefore(doc.createTextNode(' '), n); } catch (e) {} });
+      mainText = clean(c2.textContent);
+    }
+    if (mainText.length < 200) mainText = text;
+    var inNav = function (el) { return !!(el.closest && el.closest('nav,header,footer,aside')); };
+    var features = [], seenF = {};
+    q('h2,h3,h4').forEach(function (h) {
+      if (inNav(h)) return;
+      var t = spaced(h); if (len(t) < 4 || len(t) > 90 || FEAT_SKIP.test(normGr(t))) return;
+      var nx = h.nextElementSibling, d = ''; if (nx && /^(P|DIV|SPAN|UL)$/i.test(nx.tagName)) d = short(spaced(nx), 150);
+      var k = normGr(t); if (seenF[k]) return; seenF[k] = 1; features.push({ t: t, d: d });
+    });
+    q('li').forEach(function (li) {
+      if (inNav(li)) return;
+      var t = spaced(li); if (len(t) < 18 || len(t) > 140) return;
+      var k = normGr(t); if (seenF[k]) return; seenF[k] = 1; features.push({ t: t, d: '' });
+    });
+    features = features.slice(0, 60);
+    var capsHit = detectCaps(mainText, text);
     var words = text ? text.split(/\s+/).filter(function (w) { return len(w) > 1; }).length : 0;
     var greek = (text.match(/[\u0370-\u03FF\u1F00-\u1FFF]/g) || []).length;
     var latin = (text.match(/[A-Za-z]/g) || []).length;
@@ -524,6 +608,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
       copyYears: copyYears, lastDate: lastDate, langSwitch: langSwitch, placeholders: uniq(placeholders),
       scripts: q('script[src]').length, styles: q('link[rel~="stylesheet"]').length,
       autoplayVideo: q('video[autoplay]').length > 0,
+      features: features, caps: capsHit,
       covidHit: covidHit, staleHit: staleHit, isNews: isNews, textDates: textDates, hasPrice: hasPrice, ctaAny: ctaAny,
       ratingSchema: ld.some(function (n) { return n && (n.aggregateRating || n.review); })
     };
@@ -1097,6 +1182,12 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
       if (!news || mx > news.latest) news = { path: pathOf(p.url), latest: mx, count: all.length };
     });
     union.news = news;
+    var capMap = {}, feats = [];
+    pages.forEach(function (p) {
+      Object.keys(p.caps || {}).forEach(function (id) { if (!capMap[id]) capMap[id] = { path: pathOf(p.url), quote: p.caps[id] }; });
+      (p.features || []).forEach(function (f) { feats.push({ t: f.t, d: f.d, path: pathOf(p.url) }); });
+    });
+    union.capMap = capMap; union.features = feats;
     union.phones = uniq(union.phones); union.emails = uniq(union.emails);
     var host = hostOf(home.url || ctx.url || '');
     return { home: home, pages: pages, union: union, host: host, brand: deriveBrand(home, home.url || ctx.url), now: ctx.now || Date.now(), ctx: ctx };
@@ -1167,10 +1258,11 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
     return notes;
   }
   function trimDot(x) { return clean(x).replace(/[.\s]+$/, ''); }
-  function buildStory(name, score, band, positives, negatives, quick, potential, pageNotes) {
+  function buildStory(name, score, band, positives, negatives, quick, potential, pageNotes, feat) {
     var paras = [];
     var strong = positives.filter(function (i) { return !TRIVIAL_STORY[i.id]; }).slice(0, 2);
-    var p1 = 'Το ' + name + ' βαθμολογείται με ' + score + '/100 (' + band.label.toLowerCase() + '). ';
+    var offer = ''; if (feat && feat.length) offer = 'Το site περιγράφει ως βασικά σημεία: ' + feat.slice(0, 3).map(function (f) { return '«' + short(f.t, 60) + '»'; }).join(', ') + '. ';
+    var p1 = offer + 'Το ' + name + ' βαθμολογείται με ' + score + '/100 (' + band.label.toLowerCase() + '). ';
     if (strong.length) p1 += 'Αυτό που λειτουργεί καλά: ' + strong.map(function (i) { return i.name.toLowerCase().replace(/google/g, 'Google') + (i.evidence[0] ? ' (' + trimDot(i.evidence[0]) + ')' : ''); }).join(' και ') + '.';
     else p1 += 'Στους ελέγχους που έγιναν δεν ξεχωρίζει ακόμα κάποιο ισχυρό σημείο.';
     paras.push(p1);
@@ -1231,10 +1323,11 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
       pages: pages.map(function (p, i) { return { url: p.url, title: p.title, titleLen: len(p.title), descLen: len(p.desc || ''), words: p.words, h1: p.h1.length, status: p.status, notes: pageReview(p, i === 0, S.now) }; }),
       fixes: buildFixes(S, items),
       summary: makeSummary(score, positives, negatives, potential),
+      func: buildFunc(S),
       story: null,
       gbp: null
     };
-    report.story = buildStory(S.brand, score, band, positives, negatives, quick, potential, report.pages.map(function (x) { return { url: x.url, notes: x.notes }; }));
+    report.story = buildStory(S.brand, score, band, positives, negatives, quick, potential, report.pages.map(function (x) { return { url: x.url, notes: x.notes }; }), report.func.features);
     return report;
   }
 
@@ -1478,6 +1571,53 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
     return { per: per, common: common, strong: strong, text: text.join(' ') };
   }
 
+
+  function buildFunc(S) {
+    var caps = CAPS.filter(function (c) { return S.union.capMap[c.id]; }).map(function (c) { var h = S.union.capMap[c.id]; return { id: c.id, name: c.name, g: c.g, w: c.w, path: h.path, quote: h.quote }; })
+      .sort(function (a, b) { return b.w - a.w; });
+    return { caps: caps, features: S.union.features.slice(0, 40) };
+  }
+  function stemsOf(t) { return uniq(normGr(t).match(/\p{L}{5,}/gu) || []).filter(function (w) { return !STOP.has(w); }).map(function (w) { return w.slice(0, 6); }); }
+  function featMatch(a, b) {
+    var A = stemsOf(a.t + ' ' + a.d), B = stemsOf(b.t + ' ' + b.d);
+    var common = A.filter(function (x) { return B.indexOf(x) >= 0; }).length;
+    if (common >= 2) return true;
+    var at = stemsOf(a.t), bt = stemsOf(b.t);
+    return common >= 1 && at.length <= 2 && at.some(function (x) { return bt.indexOf(x) >= 0; });
+  }
+  function uniqueFeatures(mine, theirs) {
+    var out = (mine || []).filter(function (f) { return !(theirs || []).some(function (g) { return featMatch(f, g); }); });
+    out.sort(function (a, b) { return ((b.d ? 2 : 0) + (/\d/.test(b.t + b.d) ? 1 : 0)) - ((a.d ? 2 : 0) + (/\d/.test(a.t + a.d) ? 1 : 0)); });
+    return out;
+  }
+  function listNames(arr, n) { return arr.slice(0, n).map(function (c) { return c.name.charAt(0).toLowerCase() + c.name.slice(1); }).join(', ') + (arr.length > n ? ' και άλλες ' + (arr.length - n) : ''); }
+  function compareFunctions(me, rival, rivalName) {
+    var mc = {}, rc = {};
+    me.func.caps.forEach(function (c) { mc[c.id] = c; }); rival.func.caps.forEach(function (c) { rc[c.id] = c; });
+    var rOnly = rival.func.caps.filter(function (c) { return !mc[c.id]; }), mOnly = me.func.caps.filter(function (c) { return !rc[c.id]; });
+    var both = me.func.caps.filter(function (c) { return rc[c.id]; });
+    var fR = uniqueFeatures(rival.func.features, me.func.features).slice(0, 4), fM = uniqueFeatures(me.func.features, rival.func.features).slice(0, 4);
+    var t = [];
+    if (rOnly.length) t.push('Στο site του ' + rivalName + ' περιγράφονται ' + rOnly.length + ' ' + plural(rOnly.length, 'λειτουργία', 'λειτουργίες') + ' που δεν εντοπίστηκαν στο δικό σου: ' + listNames(rOnly, 6) + '.');
+    else t.push('Δεν εντοπίστηκε λειτουργία στο site του ' + rivalName + ' που να μην περιγράφεται και στο δικό σου.');
+    if (mOnly.length) t.push('Εσύ περιγράφεις ' + mOnly.length + ' που δεν εντοπίστηκαν σε εκείνον: ' + listNames(mOnly, 6) + '.');
+    else t.push('Δεν εντοπίστηκε λειτουργία που να περιγράφεις εσύ και όχι εκείνος.');
+    if (both.length) t.push('Και οι δύο περιγράφετε: ' + listNames(both, 6) + '.');
+    var verdict = rOnly.length > mOnly.length + 1 ? 'Με βάση όσα δηλώνουν τα sites, το ' + rivalName + ' καλύπτει περισσότερες λειτουργίες.'
+      : mOnly.length > rOnly.length + 1 ? 'Με βάση όσα δηλώνουν τα sites, εσύ καλύπτεις περισσότερες λειτουργίες.' : 'Με βάση όσα δηλώνουν τα sites, καλύπτετε παρόμοιο εύρος λειτουργιών.';
+    return { name: rivalName, rOnly: rOnly, mOnly: mOnly, both: both, fR: fR, fM: fM, text: t.join(' '), verdict: verdict };
+  }
+  function functionsAll(me, rivals, names) {
+    var per = rivals.map(function (r, i) { return compareFunctions(me, r, names[i]); });
+    var common = per.length ? per[0].rOnly.filter(function (c) { return per.every(function (p) { return p.rOnly.some(function (x) { return x.id === c.id; }); }); }) : [];
+    var mine = per.length ? per[0].mOnly.filter(function (c) { return per.every(function (p) { return p.mOnly.some(function (x) { return x.id === c.id; }); }); }) : [];
+    var txt = [];
+    if (common.length) txt.push((rivals.length > 1 ? 'Και οι ' + rivals.length + ' ανταγωνιστές περιγράφουν' : 'Ο ανταγωνιστής περιγράφει') + ' λειτουργίες που δεν εντοπίστηκαν σε σένα: ' + listNames(common, 6) + '. Αν τις προσφέρεις ήδη, αξίζει να φαίνονται στο site.');
+    if (mine.length) txt.push('Μόνο εσύ περιγράφεις: ' + listNames(mine, 6) + '.');
+    if (!common.length && !mine.length) txt.push('Δεν βρέθηκε ξεκάθαρη διαφορά λειτουργιών που να ισχύει για όλους τους ανταγωνιστές.');
+    return { per: per, common: common, mine: mine, text: txt.join(' ') };
+  }
+
   // ---------- σύγκριση ----------
   function compareReports(A, B) {
     var map = {};
@@ -1538,7 +1678,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
     return analyzeSite([{ doc: doc, url: opts.url || '', html: html, size: html.length }], { mode: 'paste', now: opts.now });
   }
 
-  return { __test: { datesIn: datesIn }, narrate: narrate, narrateAll: narrateAll, isSoftware: isSoftware, osmFilters: osmFilters, buildQuery: buildQuery, filterCandidates: filterCandidates, guessCategory: guessCategory, guessCity: guessCity, pickCompetitors: pickCompetitors, compareMany: compareMany, psiUrl: psiUrl, parsePagespeed: parsePagespeed, CATS: CATS, CHECKS: CHECKS, extract: extract, analyzeSite: analyzeSite, analyzeHtml: analyzeHtml, analyzeGbp: analyzeGbp, compareReports: compareReports, PASS: PASS, WARN: WARN };
+  return { compareFunctions: compareFunctions, functionsAll: functionsAll, CAPS: CAPS, __test: { datesIn: datesIn }, narrate: narrate, narrateAll: narrateAll, isSoftware: isSoftware, osmFilters: osmFilters, buildQuery: buildQuery, filterCandidates: filterCandidates, guessCategory: guessCategory, guessCity: guessCity, pickCompetitors: pickCompetitors, compareMany: compareMany, psiUrl: psiUrl, parsePagespeed: parsePagespeed, CATS: CATS, CHECKS: CHECKS, extract: extract, analyzeSite: analyzeSite, analyzeHtml: analyzeHtml, analyzeGbp: analyzeGbp, compareReports: compareReports, PASS: PASS, WARN: WARN };
 });
 
 </script>
@@ -1585,7 +1725,7 @@ var state = { mode: 'single', backend: { ok: false, places: false }, report: nul
 /* ---------- δείγματα ---------- */
 var SAMPLE_WEAK = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Acme Services</title><meta property="og:title" content="Acme Services"><meta property="og:image" content="https://acme.gr/favicon.ico"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body>' +
   '<header><a href="/"><img src="logo.png"></a><nav><a href="/"></a><a href="/about">Σχετικά</a><a href="/services">Υπηρεσίες</a><a href="/contact">Επικοινωνία</a></nav><a href="#">English</a> <a href="#">Español</a></header><video autoplay muted src="bg.mp4"></video>' +
-  '<h2>Σχετικά με εμάς</h2><p>Στην Acme πιστεύουμε στην παροχή απαράμιλλης εξειδίκευσης και καινοτόμων λύσεων στους πελάτες μας στους τομείς της εστίασης και του τουρισμού. Στόχος μας είναι η βιώσιμη ανάπτυξη.</p><h2>Υπηρεσίες</h2><p>Συμβουλευτική και στρατηγικός σχεδιασμός.</p>' +
+  '<h2>Σχετικά με εμάς</h2><p>Στην Acme πιστεύουμε στην παροχή απαράμιλλης εξειδίκευσης και καινοτόμων λύσεων στους πελάτες μας στους τομείς της εστίασης και του τουρισμού. Στόχος μας είναι η βιώσιμη ανάπτυξη.</p><h2>Υπηρεσίες</h2><p>Συμβουλευτική και στρατηγικός σχεδιασμός.</p><h3>Στρατηγικός σχεδιασμός</h3><p>Βοηθάμε νέες επιχειρήσεις να στήσουν τη λειτουργία τους.</p>' +
   '<img src="1.jpg" alt="Carousel Image 1"><img src="2.jpg"><img src="workplace-2303851_1920.jpg" alt="workplace-2303851_1920">' +
   '<footer><p>Γρίβα Διγενή 2, 17342 Αγίου Δημητρίου</p><p>Τηλέφωνο: 6983661460</p><p>Email: acme@mail.com</p><a href="https://facebook.com"></a><a href="https://instagram.com"></a><p>© 2020 Acme. Όλα τα δικαιώματα διατηρούνται.</p><p>Λόγω της πανδημίας Covid-19 τα μαθήματα γίνονται online.</p><p>Διαβάστε την [[cookie_link]] μας.</p></footer></body></html>';
 var SAMPLE_GOOD = '<!DOCTYPE html><html lang="el"><head><meta charset="utf-8"><title>Συμβουλευτική Εστιατορίων στην Αθήνα | Beta Consulting</title><meta name="description" content="Συμβουλευτική για εστιατόρια και ξενοδοχεία: μενού, κοστολόγηση και ομάδα. Ζήτησε δωρεάν πρώτη συζήτηση."><link rel="canonical" href="https://beta.gr/"><meta property="og:title" content="Συμβουλευτική Εστιατορίων | Beta"><meta property="og:description" content="Μενού, κοστολόγηση, ομάδα."><meta property="og:image" content="https://beta.gr/og.jpg"><meta name="viewport" content="width=device-width, initial-scale=1">' +
@@ -1593,7 +1733,7 @@ var SAMPLE_GOOD = '<!DOCTYPE html><html lang="el"><head><meta charset="utf-8"><t
   '<header><nav><a href="/">Αρχική</a><a href="/services">Υπηρεσίες</a></nav><a class="btn" href="/contact">Ζήτα προσφορά</a></header><h1>Συμβουλευτική για εστιατόρια που θέλουν περισσότερα κέρδη</h1>' +
   '<h2>Τι κάνουμε</h2><p>Βοηθάμε ιδιοκτήτες εστιατορίων να μειώσουν το κόστος και να αυξήσουν τις πωλήσεις με συγκεκριμένα βήματα: κοστολόγηση μενού, εκπαίδευση προσωπικού και οργάνωση κουζίνας. Δουλεύουμε δίπλα σου στην επιχείρηση.</p>' +
   '<h2>Πελάτες και κριτικές</h2><p>Δείτε τις αξιολογήσεις των πελατών μας και τα έργα μας. Διαθέτουμε πιστοποίηση HACCP και συνεργάτες σε όλη την Αττική. Πακέτα από 150€ τον μήνα με πλήρη ανάλυση, οδηγό εφαρμογής και υποστήριξη κατά τη διάρκεια της συνεργασίας. Κάθε συνεργασία ξεκινά με πλάνο δράσης, στόχους και μέτρηση αποτελεσμάτων.</p>' +
-  '<h2>Πώς δουλεύουμε</h2><p>Πρώτη συνάντηση, ανάλυση, πλάνο, εφαρμογή και παρακολούθηση για τρεις μήνες. Στο τέλος παραδίδουμε αναφορά αποτελεσμάτων και οδηγίες συντήρησης, ώστε η επιχείρησή σου να συνεχίσει μόνη της με σιγουριά.</p>' +
+  '<h3>Κοστολόγηση μενού</h3><p>Υπολογίζουμε το κόστος κάθε πιάτου και προτείνουμε τιμές που αφήνουν περιθώριο κέρδους.</p><h3>Εκπαίδευση προσωπικού</h3><p>Σεμινάρια για την ομάδα της κουζίνας και της σάλας.</p><h3>Πλάνο χρηματοδότησης ΕΣΠΑ</h3><p>Ετοιμάζουμε τον φάκελο για επιδοτούμενα προγράμματα.</p><h2>Πώς δουλεύουμε</h2><p>Πρώτη συνάντηση, ανάλυση, πλάνο, εφαρμογή και παρακολούθηση για τρεις μήνες. Στο τέλος παραδίδουμε αναφορά αποτελεσμάτων και οδηγίες συντήρησης, ώστε η επιχείρησή σου να συνεχίσει μόνη της με σιγουριά.</p>' +
   '<img src="a.jpg" alt="Ομάδα συμβούλων σε συνάντηση με ιδιοκτήτη εστιατορίου"><img src="b.jpg" alt="Κοστολόγηση μενού σε υπολογιστή">' +
   '<form><label for="n">Όνομα</label><input id="n"><label for="e">Email</label><input id="e"><textarea placeholder="Μήνυμα"></textarea><input type="checkbox"> Αποδέχομαι την <a href="/privacy">Πολιτική Απορρήτου</a><button>Αποστολή</button></form>' +
   '<footer><p>Ερμού 5, 10563 Αθήνα · <a href="tel:+302101234567">210 1234567</a> · <a href="mailto:info@beta.gr">info@beta.gr</a></p><p>ΑΦΜ 123456789 · ΓΕΜΗ 12345</p><a href="/privacy">Πολιτική Απορρήτου</a> <a href="/terms">Όροι Χρήσης</a> <a href="https://www.facebook.com/betaconsulting">Facebook</a> <a href="https://www.linkedin.com/company/beta">LinkedIn</a><p>© 2026 Beta Consulting</p></footer></body></html>';
@@ -1770,7 +1910,7 @@ function startSpeed(id, title) {
 
 /* ---------- σύγκριση με ανταγωνιστές (αυτόματη εύρεση) ---------- */
 var BENCH = window.CheckupBench || { categories: [], sites: [] };
-var SAMPLE_MID = SAMPLE_GOOD.replace(/<meta name="description"[^>]*>/, '').replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '').replace(/<meta property="og:image"[^>]*>/, '').replace(/<link rel="canonical"[^>]*>/, '');
+var SAMPLE_MID = SAMPLE_GOOD.replace(/<meta name="description"[^>]*>/, '').replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '').replace(/<meta property="og:image"[^>]*>/, '').replace(/<link rel="canonical"[^>]*>/, '').replace(/<h3>Πλάνο χρηματοδότησης ΕΣΠΑ<\/h3><p>[^<]*<\/p>/, '');
 var PROV = { tavily: 'αναζήτηση στο διαδίκτυο', places: 'Google Places', osm: 'OpenStreetMap (© OpenStreetMap contributors)', curated: 'τη λίστα της εφαρμογής' };
 function benchOn(rep) { return rep.meta.sample || (state.backend.ok && rep.meta.mode === 'live' && rep.meta.url); }
 function benchSlot(rep) { return benchOn(rep) ? '<div id="bench"></div>' : ''; }
@@ -1780,7 +1920,7 @@ function startBench(rep) {
   var vendor = Checkup.isSoftware(hints), city = vendor ? '' : Checkup.guessCity(hints);
   var b = state.bench = { rep: rep, vendor: vendor, tried: [], cat: Checkup.guessCategory(BENCH, hints) || '', city: city, query: Checkup.buildQuery(hints, rep.meta.brand, city), pool: [], poolOff: 0, provider: '', urls: ['', ''], names: ['', ''], results: [null, null], errors: [null, null], loading: false, note: '' };
   if (rep.meta.sample) {
-    b.names = ['Ανταγωνιστής Α', 'Ανταγωνιστής Β']; b.sample = true; b.query = 'σύμβουλοι εστίασης Αθήνα'; b.provider = 'tavily';
+    b.names = ['Beta Consulting', 'Gamma Services']; b.sample = true; b.query = 'σύμβουλοι εστίασης Αθήνα'; b.provider = 'tavily';
     b.results = [Checkup.analyzeHtml(SAMPLE_GOOD, { url: 'https://beta.gr/' }), Checkup.analyzeHtml(SAMPLE_MID, { url: 'https://gamma.gr/' })];
     b.results[0].meta.brand = 'Beta Consulting'; b.results[1].meta.brand = 'Gamma Services';
     renderBench(); return;
@@ -1827,7 +1967,7 @@ function renderBench() {
   el.innerHTML = h;
 }
 function narrHtml(me, reps, names) {
-  var N = Checkup.narrateAll(me, reps, names), h = '<section class="sec"><h2>Σύγκριση ένα προς ένα</h2>';
+  var N = Checkup.narrateAll(me, reps, names), h = '<section class="sec"><h2>Σύγκριση δομής του site, ένα προς ένα</h2>';
   h += '<div class="narr"><p><b>Συμπέρασμα.</b> ' + esc(N.text) + '</p>';
   if (N.common.length) h += '<p style="margin-top:.6rem"><b>Σε αυτά υστερείς και απέναντι στους δύο:</b> ' + N.common.slice(0, 5).map(function (g) { return esc(g.name.toLowerCase().replace(/google/g, 'Google')); }).join(', ') + '. Είναι οι πιο σίγουρες κινήσεις.</p>';
   if (N.strong.length) h += '<p style="margin-top:.6rem"><b>Εκεί που είσαι καλύτερος από όλους:</b> ' + N.strong.map(function (g) { return esc(g.name.toLowerCase().replace(/google/g, 'Google')); }).join(', ') + '.</p>';
@@ -1838,6 +1978,36 @@ function narrHtml(me, reps, names) {
     if (n.leadCats.length) h += '<p style="margin-top:.4rem"><b>Προηγείσαι σε:</b> ' + n.leadCats.slice(0, 3).map(function (c) { return esc(c.name) + ' (' + c.me + ' έναντι ' + c.rival + ')'; }).join(', ') + '.</p>';
     if (n.gaps.length) h += '<h4>Τι κάνει καλύτερα από σένα</h4><ul>' + n.gaps.map(function (g) { return '<li><b>' + esc(g.name) + '.</b> Εσύ: ' + esc(g.me) + ' ' + esc(n.name) + ': ' + esc(g.rival) + (g.fix ? ' <span class="fx">Τι να κάνεις: ' + esc(g.fix) + '</span>' : '') + '</li>'; }).join('') + '</ul>';
     if (n.wins.length) h += '<h4>Τι κάνεις εσύ καλύτερα</h4><ul>' + n.wins.map(function (g) { return '<li><b>' + esc(g.name) + '.</b> Εσύ: ' + esc(g.me) + ' ' + esc(n.name) + ': ' + esc(g.rival) + '</li>'; }).join('') + '</ul>';
+    h += '</article>';
+  });
+  return h + '</section>';
+}
+function capLi(c, sitePath) {
+  return '<li><b>' + esc(c.name) + '.</b> ' + (c.quote ? '«' + esc(c.quote) + '» ' : '') + '<span class="src">(' + (c.path === '/' ? 'αρχική' : 'σελίδα ' + esc(c.path)) + ')</span></li>';
+}
+function capList(arr, max) {
+  if (!arr.length) return '<p class="hint">Δεν εντοπίστηκαν.</p>';
+  return '<ul>' + arr.slice(0, max).map(capLi).join('') + '</ul>' + (arr.length > max ? '<p class="hint">και άλλες ' + (arr.length - max) + '.</p>' : '');
+}
+function featList(arr) {
+  if (!arr.length) return '';
+  return '<ul>' + arr.map(function (f) { return '<li><b>' + esc(f.t) + '</b>' + (f.d ? ' — ' + esc(f.d) : '') + ' <span class="src">(' + (f.path === '/' ? 'αρχική' : 'σελίδα ' + esc(f.path)) + ')</span></li>'; }).join('') + '</ul>';
+}
+function funcHtml(me, reps, names) {
+  if (!me.func) return '';
+  var F = Checkup.functionsAll(me, reps, names);
+  var h = '<section class="sec"><h2>Τι κάνει καλύτερα η κάθε εταιρεία</h2><p class="hint">Με βάση όσα περιγράφει το site της κάθε επιχείρησης (υπηρεσίες, λειτουργίες, τίτλοι και λίστες). Δείχνει τι δηλώνει το κάθε site, όχι αν η λειτουργία δουλεύει καλύτερα στην πράξη.</p>';
+  h += '<div class="narr"><p><b>Συμπέρασμα.</b> ' + esc(F.text) + '</p></div>';
+  F.per.forEach(function (n, i) {
+    var r = reps[i];
+    var none = !n.rOnly.length && !n.mOnly.length && !n.both.length && !n.fR.length && !n.fM.length;
+    h += '<article class="narr rival"><h3>Εσύ έναντι ' + esc(n.name) + '</h3><p class="hl">' + esc(n.verdict) + '</p><p>' + esc(n.text) + '</p>';
+    if (none) h += '<p class="hint" style="margin-top:.6rem">Τα sites δεν περιγράφουν λειτουργίες με τρόπο που να διαβάζεται αυτόματα. Δες τα κείμενά τους χειροκίνητα.</p>';
+    if (n.rOnly.length) h += '<h4>Λειτουργίες που περιγράφει το site του ' + esc(n.name) + ' και όχι το δικό σου</h4>' + capList(n.rOnly, 6);
+    if (n.mOnly.length) h += '<h4>Λειτουργίες που περιγράφεις εσύ και όχι το site του ' + esc(n.name) + '</h4>' + capList(n.mOnly, 6);
+    if (n.both.length) h += '<h4>Περιγράφουν και οι δύο</h4><p>' + n.both.map(function (c) { return esc(c.name); }).join(', ') + '.</p>';
+    if (n.fR.length) h += '<h4>Άλλα σημεία που τονίζει το site του ' + esc(n.name) + '</h4>' + featList(n.fR);
+    if (n.fM.length) h += '<h4>Άλλα σημεία που τονίζεις εσύ</h4>' + featList(n.fM);
     h += '</article>';
   });
   return h + '</section>';
@@ -1863,8 +2033,8 @@ function benchOutHtml() {
       return '<div>' + meter(c.score, bandOf(c.score)) + '<span class="n">' + c.score + '</span></div>';
     }).join('') + '</div>';
   }).join('');
-  h += narrHtml(me, reps, names.slice(1));
-  h += '<details class="more-diff"><summary>Όλες οι διαφορές αναλυτικά</summary><div class="split"><div class="col neg"><h2>Πού υστερείς <span class="badge">' + cmp.gaps.length + '</span></h2><div class="items">' +
+  h += funcHtml(me, reps, names.slice(1));
+  h += '<details class="more-diff"><summary>Όλες οι διαφορές αναλυτικά (δομή του site, SEO, τεχνικά)</summary>' + narrHtml(me, reps, names.slice(1)) + '<div class="split"><div class="col neg"><h2>Πού υστερείς <span class="badge">' + cmp.gaps.length + '</span></h2><div class="items">' +
     (cmp.gaps.slice(0, 7).map(function (g) { var rv = names[g.rival + 1]; return '<details class="item fail" open><summary><span class="ic" aria-hidden="true">✕</span><span class="nm">' + esc(g.row.name) + '</span></summary><div class="body"><p><span class="lab">Εσύ: </span>' + esc(g.row.cells[0].ev) + '</p><p class="fixline"><span class="lab">' + esc(rv) + ': </span>' + esc(g.row.cells[g.rival + 1].ev) + '</p></div></details>'; }).join('') || '<p class="hint">Δεν υστερείς ουσιαστικά σε κάποιον έλεγχο.</p>') + '</div></div>' +
     '<div class="col"><h2>Πού προηγείσαι <span class="badge">' + cmp.wins.length + '</span></h2><div class="items">' +
     (cmp.wins.slice(0, 7).map(function (g) { var rv = names[g.rival + 1]; return '<details class="item pass"><summary><span class="ic" aria-hidden="true">✓</span><span class="nm">' + esc(g.row.name) + '</span></summary><div class="body"><p><span class="lab">Εσύ: </span>' + esc(g.row.cells[0].ev) + '</p><p><span class="lab">' + esc(rv) + ': </span>' + esc(g.row.cells[g.rival + 1].ev) + '</p></div></details>'; }).join('') || '<p class="hint">Δεν προηγείσαι ξεκάθαρα σε κάποιον έλεγχο.</p>') + '</div></div></div></details>';

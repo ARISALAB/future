@@ -189,7 +189,7 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
 .narr h3{ font-size:1.15rem; font-weight:800; } .narr h4{ margin-top:.9rem; font-size:1rem; font-weight:600; }
 .narr .hl{ font-weight:600; margin-top:.3rem; } .narr ul{ margin:.4rem 0 0; padding-left:1.1rem; display:grid; gap:.45rem; }
 .narr .fx{ display:block; color:var(--teal); font-size:.92rem; margin-top:.1rem; }
-.more-diff{ margin-top:1.2rem; } .more-diff > summary{ cursor:pointer; font-weight:600; color:var(--teal); }
+.src{ color:var(--ink2); font-size:.85rem; } .more-diff{ margin-top:1.2rem; } .more-diff > summary{ cursor:pointer; font-weight:600; color:var(--teal); }
 
 .story{ margin-top:.8rem; padding:1rem 1.2rem; background:var(--card); border:1px dashed var(--line2); border-radius:12px; font-size:1.05rem; line-height:1.65; }
 .story p{ margin:0 0 .8rem; } .story p:last-child{ margin-bottom:0; } .story:focus{ outline:3px solid var(--teal); outline-offset:2px; }
@@ -280,7 +280,7 @@ var state = { mode: 'single', backend: { ok: false, places: false }, report: nul
 /* ---------- δείγματα ---------- */
 var SAMPLE_WEAK = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Acme Services</title><meta property="og:title" content="Acme Services"><meta property="og:image" content="https://acme.gr/favicon.ico"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body>' +
   '<header><a href="/"><img src="logo.png"></a><nav><a href="/"></a><a href="/about">Σχετικά</a><a href="/services">Υπηρεσίες</a><a href="/contact">Επικοινωνία</a></nav><a href="#">English</a> <a href="#">Español</a></header><video autoplay muted src="bg.mp4"></video>' +
-  '<h2>Σχετικά με εμάς</h2><p>Στην Acme πιστεύουμε στην παροχή απαράμιλλης εξειδίκευσης και καινοτόμων λύσεων στους πελάτες μας στους τομείς της εστίασης και του τουρισμού. Στόχος μας είναι η βιώσιμη ανάπτυξη.</p><h2>Υπηρεσίες</h2><p>Συμβουλευτική και στρατηγικός σχεδιασμός.</p>' +
+  '<h2>Σχετικά με εμάς</h2><p>Στην Acme πιστεύουμε στην παροχή απαράμιλλης εξειδίκευσης και καινοτόμων λύσεων στους πελάτες μας στους τομείς της εστίασης και του τουρισμού. Στόχος μας είναι η βιώσιμη ανάπτυξη.</p><h2>Υπηρεσίες</h2><p>Συμβουλευτική και στρατηγικός σχεδιασμός.</p><h3>Στρατηγικός σχεδιασμός</h3><p>Βοηθάμε νέες επιχειρήσεις να στήσουν τη λειτουργία τους.</p>' +
   '<img src="1.jpg" alt="Carousel Image 1"><img src="2.jpg"><img src="workplace-2303851_1920.jpg" alt="workplace-2303851_1920">' +
   '<footer><p>Γρίβα Διγενή 2, 17342 Αγίου Δημητρίου</p><p>Τηλέφωνο: 6983661460</p><p>Email: acme@mail.com</p><a href="https://facebook.com"></a><a href="https://instagram.com"></a><p>© 2020 Acme. Όλα τα δικαιώματα διατηρούνται.</p><p>Λόγω της πανδημίας Covid-19 τα μαθήματα γίνονται online.</p><p>Διαβάστε την [[cookie_link]] μας.</p></footer></body></html>';
 var SAMPLE_GOOD = '<!DOCTYPE html><html lang="el"><head><meta charset="utf-8"><title>Συμβουλευτική Εστιατορίων στην Αθήνα | Beta Consulting</title><meta name="description" content="Συμβουλευτική για εστιατόρια και ξενοδοχεία: μενού, κοστολόγηση και ομάδα. Ζήτησε δωρεάν πρώτη συζήτηση."><link rel="canonical" href="https://beta.gr/"><meta property="og:title" content="Συμβουλευτική Εστιατορίων | Beta"><meta property="og:description" content="Μενού, κοστολόγηση, ομάδα."><meta property="og:image" content="https://beta.gr/og.jpg"><meta name="viewport" content="width=device-width, initial-scale=1">' +
@@ -288,7 +288,7 @@ var SAMPLE_GOOD = '<!DOCTYPE html><html lang="el"><head><meta charset="utf-8"><t
   '<header><nav><a href="/">Αρχική</a><a href="/services">Υπηρεσίες</a></nav><a class="btn" href="/contact">Ζήτα προσφορά</a></header><h1>Συμβουλευτική για εστιατόρια που θέλουν περισσότερα κέρδη</h1>' +
   '<h2>Τι κάνουμε</h2><p>Βοηθάμε ιδιοκτήτες εστιατορίων να μειώσουν το κόστος και να αυξήσουν τις πωλήσεις με συγκεκριμένα βήματα: κοστολόγηση μενού, εκπαίδευση προσωπικού και οργάνωση κουζίνας. Δουλεύουμε δίπλα σου στην επιχείρηση.</p>' +
   '<h2>Πελάτες και κριτικές</h2><p>Δείτε τις αξιολογήσεις των πελατών μας και τα έργα μας. Διαθέτουμε πιστοποίηση HACCP και συνεργάτες σε όλη την Αττική. Πακέτα από 150€ τον μήνα με πλήρη ανάλυση, οδηγό εφαρμογής και υποστήριξη κατά τη διάρκεια της συνεργασίας. Κάθε συνεργασία ξεκινά με πλάνο δράσης, στόχους και μέτρηση αποτελεσμάτων.</p>' +
-  '<h2>Πώς δουλεύουμε</h2><p>Πρώτη συνάντηση, ανάλυση, πλάνο, εφαρμογή και παρακολούθηση για τρεις μήνες. Στο τέλος παραδίδουμε αναφορά αποτελεσμάτων και οδηγίες συντήρησης, ώστε η επιχείρησή σου να συνεχίσει μόνη της με σιγουριά.</p>' +
+  '<h3>Κοστολόγηση μενού</h3><p>Υπολογίζουμε το κόστος κάθε πιάτου και προτείνουμε τιμές που αφήνουν περιθώριο κέρδους.</p><h3>Εκπαίδευση προσωπικού</h3><p>Σεμινάρια για την ομάδα της κουζίνας και της σάλας.</p><h3>Πλάνο χρηματοδότησης ΕΣΠΑ</h3><p>Ετοιμάζουμε τον φάκελο για επιδοτούμενα προγράμματα.</p><h2>Πώς δουλεύουμε</h2><p>Πρώτη συνάντηση, ανάλυση, πλάνο, εφαρμογή και παρακολούθηση για τρεις μήνες. Στο τέλος παραδίδουμε αναφορά αποτελεσμάτων και οδηγίες συντήρησης, ώστε η επιχείρησή σου να συνεχίσει μόνη της με σιγουριά.</p>' +
   '<img src="a.jpg" alt="Ομάδα συμβούλων σε συνάντηση με ιδιοκτήτη εστιατορίου"><img src="b.jpg" alt="Κοστολόγηση μενού σε υπολογιστή">' +
   '<form><label for="n">Όνομα</label><input id="n"><label for="e">Email</label><input id="e"><textarea placeholder="Μήνυμα"></textarea><input type="checkbox"> Αποδέχομαι την <a href="/privacy">Πολιτική Απορρήτου</a><button>Αποστολή</button></form>' +
   '<footer><p>Ερμού 5, 10563 Αθήνα · <a href="tel:+302101234567">210 1234567</a> · <a href="mailto:info@beta.gr">info@beta.gr</a></p><p>ΑΦΜ 123456789 · ΓΕΜΗ 12345</p><a href="/privacy">Πολιτική Απορρήτου</a> <a href="/terms">Όροι Χρήσης</a> <a href="https://www.facebook.com/betaconsulting">Facebook</a> <a href="https://www.linkedin.com/company/beta">LinkedIn</a><p>© 2026 Beta Consulting</p></footer></body></html>';
@@ -465,7 +465,7 @@ function startSpeed(id, title) {
 
 /* ---------- σύγκριση με ανταγωνιστές (αυτόματη εύρεση) ---------- */
 var BENCH = window.CheckupBench || { categories: [], sites: [] };
-var SAMPLE_MID = SAMPLE_GOOD.replace(/<meta name="description"[^>]*>/, '').replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '').replace(/<meta property="og:image"[^>]*>/, '').replace(/<link rel="canonical"[^>]*>/, '');
+var SAMPLE_MID = SAMPLE_GOOD.replace(/<meta name="description"[^>]*>/, '').replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '').replace(/<meta property="og:image"[^>]*>/, '').replace(/<link rel="canonical"[^>]*>/, '').replace(/<h3>Πλάνο χρηματοδότησης ΕΣΠΑ<\/h3><p>[^<]*<\/p>/, '');
 var PROV = { tavily: 'αναζήτηση στο διαδίκτυο', places: 'Google Places', osm: 'OpenStreetMap (© OpenStreetMap contributors)', curated: 'τη λίστα της εφαρμογής' };
 function benchOn(rep) { return rep.meta.sample || (state.backend.ok && rep.meta.mode === 'live' && rep.meta.url); }
 function benchSlot(rep) { return benchOn(rep) ? '<div id="bench"></div>' : ''; }
@@ -475,7 +475,7 @@ function startBench(rep) {
   var vendor = Checkup.isSoftware(hints), city = vendor ? '' : Checkup.guessCity(hints);
   var b = state.bench = { rep: rep, vendor: vendor, tried: [], cat: Checkup.guessCategory(BENCH, hints) || '', city: city, query: Checkup.buildQuery(hints, rep.meta.brand, city), pool: [], poolOff: 0, provider: '', urls: ['', ''], names: ['', ''], results: [null, null], errors: [null, null], loading: false, note: '' };
   if (rep.meta.sample) {
-    b.names = ['Ανταγωνιστής Α', 'Ανταγωνιστής Β']; b.sample = true; b.query = 'σύμβουλοι εστίασης Αθήνα'; b.provider = 'tavily';
+    b.names = ['Beta Consulting', 'Gamma Services']; b.sample = true; b.query = 'σύμβουλοι εστίασης Αθήνα'; b.provider = 'tavily';
     b.results = [Checkup.analyzeHtml(SAMPLE_GOOD, { url: 'https://beta.gr/' }), Checkup.analyzeHtml(SAMPLE_MID, { url: 'https://gamma.gr/' })];
     b.results[0].meta.brand = 'Beta Consulting'; b.results[1].meta.brand = 'Gamma Services';
     renderBench(); return;
@@ -522,7 +522,7 @@ function renderBench() {
   el.innerHTML = h;
 }
 function narrHtml(me, reps, names) {
-  var N = Checkup.narrateAll(me, reps, names), h = '<section class="sec"><h2>Σύγκριση ένα προς ένα</h2>';
+  var N = Checkup.narrateAll(me, reps, names), h = '<section class="sec"><h2>Σύγκριση δομής του site, ένα προς ένα</h2>';
   h += '<div class="narr"><p><b>Συμπέρασμα.</b> ' + esc(N.text) + '</p>';
   if (N.common.length) h += '<p style="margin-top:.6rem"><b>Σε αυτά υστερείς και απέναντι στους δύο:</b> ' + N.common.slice(0, 5).map(function (g) { return esc(g.name.toLowerCase().replace(/google/g, 'Google')); }).join(', ') + '. Είναι οι πιο σίγουρες κινήσεις.</p>';
   if (N.strong.length) h += '<p style="margin-top:.6rem"><b>Εκεί που είσαι καλύτερος από όλους:</b> ' + N.strong.map(function (g) { return esc(g.name.toLowerCase().replace(/google/g, 'Google')); }).join(', ') + '.</p>';
@@ -533,6 +533,36 @@ function narrHtml(me, reps, names) {
     if (n.leadCats.length) h += '<p style="margin-top:.4rem"><b>Προηγείσαι σε:</b> ' + n.leadCats.slice(0, 3).map(function (c) { return esc(c.name) + ' (' + c.me + ' έναντι ' + c.rival + ')'; }).join(', ') + '.</p>';
     if (n.gaps.length) h += '<h4>Τι κάνει καλύτερα από σένα</h4><ul>' + n.gaps.map(function (g) { return '<li><b>' + esc(g.name) + '.</b> Εσύ: ' + esc(g.me) + ' ' + esc(n.name) + ': ' + esc(g.rival) + (g.fix ? ' <span class="fx">Τι να κάνεις: ' + esc(g.fix) + '</span>' : '') + '</li>'; }).join('') + '</ul>';
     if (n.wins.length) h += '<h4>Τι κάνεις εσύ καλύτερα</h4><ul>' + n.wins.map(function (g) { return '<li><b>' + esc(g.name) + '.</b> Εσύ: ' + esc(g.me) + ' ' + esc(n.name) + ': ' + esc(g.rival) + '</li>'; }).join('') + '</ul>';
+    h += '</article>';
+  });
+  return h + '</section>';
+}
+function capLi(c, sitePath) {
+  return '<li><b>' + esc(c.name) + '.</b> ' + (c.quote ? '«' + esc(c.quote) + '» ' : '') + '<span class="src">(' + (c.path === '/' ? 'αρχική' : 'σελίδα ' + esc(c.path)) + ')</span></li>';
+}
+function capList(arr, max) {
+  if (!arr.length) return '<p class="hint">Δεν εντοπίστηκαν.</p>';
+  return '<ul>' + arr.slice(0, max).map(capLi).join('') + '</ul>' + (arr.length > max ? '<p class="hint">και άλλες ' + (arr.length - max) + '.</p>' : '');
+}
+function featList(arr) {
+  if (!arr.length) return '';
+  return '<ul>' + arr.map(function (f) { return '<li><b>' + esc(f.t) + '</b>' + (f.d ? ' — ' + esc(f.d) : '') + ' <span class="src">(' + (f.path === '/' ? 'αρχική' : 'σελίδα ' + esc(f.path)) + ')</span></li>'; }).join('') + '</ul>';
+}
+function funcHtml(me, reps, names) {
+  if (!me.func) return '';
+  var F = Checkup.functionsAll(me, reps, names);
+  var h = '<section class="sec"><h2>Τι κάνει καλύτερα η κάθε εταιρεία</h2><p class="hint">Με βάση όσα περιγράφει το site της κάθε επιχείρησης (υπηρεσίες, λειτουργίες, τίτλοι και λίστες). Δείχνει τι δηλώνει το κάθε site, όχι αν η λειτουργία δουλεύει καλύτερα στην πράξη.</p>';
+  h += '<div class="narr"><p><b>Συμπέρασμα.</b> ' + esc(F.text) + '</p></div>';
+  F.per.forEach(function (n, i) {
+    var r = reps[i];
+    var none = !n.rOnly.length && !n.mOnly.length && !n.both.length && !n.fR.length && !n.fM.length;
+    h += '<article class="narr rival"><h3>Εσύ έναντι ' + esc(n.name) + '</h3><p class="hl">' + esc(n.verdict) + '</p><p>' + esc(n.text) + '</p>';
+    if (none) h += '<p class="hint" style="margin-top:.6rem">Τα sites δεν περιγράφουν λειτουργίες με τρόπο που να διαβάζεται αυτόματα. Δες τα κείμενά τους χειροκίνητα.</p>';
+    if (n.rOnly.length) h += '<h4>Λειτουργίες που περιγράφει το site του ' + esc(n.name) + ' και όχι το δικό σου</h4>' + capList(n.rOnly, 6);
+    if (n.mOnly.length) h += '<h4>Λειτουργίες που περιγράφεις εσύ και όχι το site του ' + esc(n.name) + '</h4>' + capList(n.mOnly, 6);
+    if (n.both.length) h += '<h4>Περιγράφουν και οι δύο</h4><p>' + n.both.map(function (c) { return esc(c.name); }).join(', ') + '.</p>';
+    if (n.fR.length) h += '<h4>Άλλα σημεία που τονίζει το site του ' + esc(n.name) + '</h4>' + featList(n.fR);
+    if (n.fM.length) h += '<h4>Άλλα σημεία που τονίζεις εσύ</h4>' + featList(n.fM);
     h += '</article>';
   });
   return h + '</section>';
@@ -558,8 +588,8 @@ function benchOutHtml() {
       return '<div>' + meter(c.score, bandOf(c.score)) + '<span class="n">' + c.score + '</span></div>';
     }).join('') + '</div>';
   }).join('');
-  h += narrHtml(me, reps, names.slice(1));
-  h += '<details class="more-diff"><summary>Όλες οι διαφορές αναλυτικά</summary><div class="split"><div class="col neg"><h2>Πού υστερείς <span class="badge">' + cmp.gaps.length + '</span></h2><div class="items">' +
+  h += funcHtml(me, reps, names.slice(1));
+  h += '<details class="more-diff"><summary>Όλες οι διαφορές αναλυτικά (δομή του site, SEO, τεχνικά)</summary>' + narrHtml(me, reps, names.slice(1)) + '<div class="split"><div class="col neg"><h2>Πού υστερείς <span class="badge">' + cmp.gaps.length + '</span></h2><div class="items">' +
     (cmp.gaps.slice(0, 7).map(function (g) { var rv = names[g.rival + 1]; return '<details class="item fail" open><summary><span class="ic" aria-hidden="true">✕</span><span class="nm">' + esc(g.row.name) + '</span></summary><div class="body"><p><span class="lab">Εσύ: </span>' + esc(g.row.cells[0].ev) + '</p><p class="fixline"><span class="lab">' + esc(rv) + ': </span>' + esc(g.row.cells[g.rival + 1].ev) + '</p></div></details>'; }).join('') || '<p class="hint">Δεν υστερείς ουσιαστικά σε κάποιον έλεγχο.</p>') + '</div></div>' +
     '<div class="col"><h2>Πού προηγείσαι <span class="badge">' + cmp.wins.length + '</span></h2><div class="items">' +
     (cmp.wins.slice(0, 7).map(function (g) { var rv = names[g.rival + 1]; return '<details class="item pass"><summary><span class="ic" aria-hidden="true">✓</span><span class="nm">' + esc(g.row.name) + '</span></summary><div class="body"><p><span class="lab">Εσύ: </span>' + esc(g.row.cells[0].ev) + '</p><p><span class="lab">' + esc(rv) + ': </span>' + esc(g.row.cells[g.rival + 1].ev) + '</p></div></details>'; }).join('') || '<p class="hint">Δεν προηγείσαι ξεκάθαρα σε κάποιον έλεγχο.</p>') + '</div></div></div></details>';

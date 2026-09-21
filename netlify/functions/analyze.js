@@ -14854,10 +14854,8 @@ var require_analyzer = __commonJS({
         var y = Math.floor(mo / 12);
         return "\u03C0\u03C1\u03B9\u03BD " + y + " " + (y === 1 ? "\u03C7\u03C1\u03CC\u03BD\u03BF" : "\u03C7\u03C1\u03CC\u03BD\u03B9\u03B1");
       }
-      function sentenceWith(text, re) {
-        var m = re.exec(text);
-        if (!m) return "";
-        var i = m.index, start = 0, end = text.length, k, a;
+      function sentenceAt(text, i) {
+        var start = 0, end = text.length, k, a;
         [". ", "! ", "? ", "\xB7 ", "; "].forEach(function(sep) {
           a = text.lastIndexOf(sep, i);
           if (a >= 0 && a + 2 > start && a < i) start = a + 2;
@@ -14866,8 +14864,75 @@ var require_analyzer = __commonJS({
           k = text.indexOf(sep, i);
           if (k >= 0 && k + 1 < end) end = k + 1;
         });
-        return short(text.slice(start, end), 190);
+        if (end - start > 220) {
+          start = Math.max(start, i - 70);
+          end = Math.min(end, i + 130);
+          var sp = text.indexOf(" ", start);
+          if (start > 0 && sp >= 0 && sp < i) start = sp + 1;
+          var ep = text.lastIndexOf(" ", end);
+          if (ep > i) end = ep;
+        }
+        return short(text.slice(start, end), 200);
       }
+      function sentenceWith(text, re) {
+        var m = re.exec(text);
+        return m ? sentenceAt(text, m.index) : "";
+      }
+      var CAPS = [
+        { id: "trial", g: "generic", w: 1, name: "\u0394\u03C9\u03C1\u03B5\u03AC\u03BD \u03B4\u03BF\u03BA\u03B9\u03BC\u03AE \u03AE demo", re: /δωρεαν δοκιμη|free trial|δοκιμαστε δωρεαν|ζητηστε demo|\bdemo\b|δωρεαν δοκιμαστικ/ },
+        { id: "guarantee", g: "generic", w: 1, name: "\u0395\u03B3\u03B3\u03CD\u03B7\u03C3\u03B7 \u03AE \u03B5\u03C0\u03B9\u03C3\u03C4\u03C1\u03BF\u03C6\u03AE \u03C7\u03C1\u03B7\u03BC\u03AC\u03C4\u03C9\u03BD", re: /εγγυηση|εγγυημεν|money[- ]back|επιστροφη χρηματων|guarantee/ },
+        { id: "support", g: "generic", w: 1, name: "\u03A5\u03C0\u03BF\u03C3\u03C4\u03AE\u03C1\u03B9\u03BE\u03B7 \u03C0\u03B5\u03BB\u03B1\u03C4\u03CE\u03BD", re: /υποστηριξη|help ?desk|εξυπηρετηση πελατων|customer support|live chat/ },
+        { id: "multilang", g: "generic", w: 1, name: "\u03A0\u03BF\u03BB\u03BB\u03AD\u03C2 \u03B3\u03BB\u03CE\u03C3\u03C3\u03B5\u03C2", re: /πολυγλωσσ|multi-?lingual|\d+\s+γλωσσ/ },
+        { id: "integrations", g: "generic", w: 2, name: "\u0395\u03BD\u03C3\u03C9\u03BC\u03B1\u03C4\u03CE\u03C3\u03B5\u03B9\u03C2 \u03BC\u03B5 \u03AC\u03BB\u03BB\u03B1 \u03C3\u03C5\u03C3\u03C4\u03AE\u03BC\u03B1\u03C4\u03B1", re: /ενσωματωσ|συνδεεται με|integrat|\bapi\b|συμβατ/ },
+        { id: "mobile", g: "generic", w: 2, name: "\u0395\u03C6\u03B1\u03C1\u03BC\u03BF\u03B3\u03AE \u03B3\u03B9\u03B1 \u03BA\u03B9\u03BD\u03B7\u03C4\u03CC", re: /εφαρμογη για κινητο|mobile app|app store|google play|εφαρμογη ios|εφαρμογη android/ },
+        { id: "payments", g: "generic", w: 2, name: "Online \u03C0\u03BB\u03B7\u03C1\u03C9\u03BC\u03AD\u03C2 \u03AE \u03C0\u03C1\u03BF\u03BA\u03B1\u03C4\u03B1\u03B2\u03BF\u03BB\u03AD\u03C2", re: /online πληρωμ|πληρωμη με καρτα|stripe|paypal|viva ?wallet|ηλεκτρονικ\w* πληρωμ|προπληρωμ|προκαταβολ|\bdeposit/ },
+        { id: "notifications", g: "generic", w: 2, name: "\u0395\u03B9\u03B4\u03BF\u03C0\u03BF\u03B9\u03AE\u03C3\u03B5\u03B9\u03C2 SMS/email", re: /\bsms\b|υπενθυμισ|reminders?|ειδοποιησεισ (sms|email|πελατ)|notifications?/ },
+        { id: "reports", g: "generic", w: 2, name: "\u0391\u03BD\u03B1\u03C6\u03BF\u03C1\u03AD\u03C2 \u03BA\u03B1\u03B9 \u03C3\u03C4\u03B1\u03C4\u03B9\u03C3\u03C4\u03B9\u03BA\u03AC", re: /στατιστικ|analytics|reports?\b|dashboard|αναφορεσ και/ },
+        { id: "security", g: "generic", w: 1, name: "\u0391\u03C3\u03C6\u03AC\u03BB\u03B5\u03B9\u03B1 \u03B4\u03B5\u03B4\u03BF\u03BC\u03AD\u03BD\u03C9\u03BD / GDPR", re: /gdpr|ασφαλεια δεδομενων|κρυπτογραφησ|προστασια προσωπικων/ },
+        { id: "plans", g: "generic", w: 1, name: "\u03A0\u03B1\u03BA\u03AD\u03C4\u03B1 \u03BA\u03B1\u03B9 \u03C4\u03B9\u03BC\u03AD\u03C2", re: /πακετα|τιμολογηση|από \d+\s?€|apo \d+\s?€|\d+\s?€\s?\/\s?(μηνα|month)|pricing plans?/ },
+        { id: "nocommit", g: "generic", w: 2, name: "\u03A7\u03C9\u03C1\u03AF\u03C2 \u03C0\u03C1\u03BF\u03BC\u03AE\u03B8\u03B5\u03B9\u03B1 \u03AE \u03B4\u03AD\u03C3\u03BC\u03B5\u03C5\u03C3\u03B7", re: /χωρις προμηθει|χωρις δεσμευση|no commission|cancel anytime|χωρις συμβολαιο|χωρις κρυφεσ χρεωσεισ/ },
+        { id: "clients", g: "generic", w: 1, name: "\u0391\u03C1\u03B9\u03B8\u03BC\u03CC\u03C2 \u03C0\u03B5\u03BB\u03B1\u03C4\u03CE\u03BD \u03AE \u03B1\u03BD\u03B1\u03C6\u03BF\u03C1\u03AD\u03C2", re: /εμπιστευονται|trusted by|\d[\d.]*\+?\s*(πελατ|εστιατορι|επιχειρησ|ξενοδοχει|customers|clients)/ },
+        { id: "experience", g: "generic", w: 1, name: "\u03A7\u03C1\u03CC\u03BD\u03B9\u03B1 \u03B5\u03BC\u03C0\u03B5\u03B9\u03C1\u03AF\u03B1\u03C2", re: /\d+\+?\s*χρονια (εμπειρι|στην αγορα|λειτουργι)|\d+\+?\s*years|απο το (19|20)\d{2}/ },
+        // εστίαση / φιλοξενία
+        { id: "reservations", g: "hospitality", w: 3, name: "Online \u03BA\u03C1\u03B1\u03C4\u03AE\u03C3\u03B5\u03B9\u03C2 \u03C4\u03C1\u03B1\u03C0\u03B5\u03B6\u03B9\u03CE\u03BD", re: /online κρατησ|κρατησεισ τραπεζι|κρατηση τραπεζιου|table reservations?|online booking|reservations? online/ },
+        { id: "tableplan", g: "hospitality", w: 3, name: "\u0394\u03B9\u03B1\u03C7\u03B5\u03AF\u03C1\u03B9\u03C3\u03B7 \u03C4\u03C1\u03B1\u03C0\u03B5\u03B6\u03B9\u03CE\u03BD \u03BA\u03B1\u03B9 \u03BA\u03AC\u03C4\u03BF\u03C8\u03B7", re: /κατοψη|table (plan|management)|διαχειριση τραπεζι|floor plan|χαρτησ τραπεζι/ },
+        { id: "waitlist", g: "hospitality", w: 3, name: "\u039B\u03AF\u03C3\u03C4\u03B1 \u03B1\u03BD\u03B1\u03BC\u03BF\u03BD\u03AE\u03C2", re: /λιστα αναμονησ|waitlist|waiting list/ },
+        { id: "widget", g: "hospitality", w: 3, name: "\u03A6\u03CC\u03C1\u03BC\u03B1 \u03BA\u03C1\u03B1\u03C4\u03AE\u03C3\u03B5\u03C9\u03BD \u03BC\u03AD\u03C3\u03B1 \u03C3\u03C4\u03BF \u03B4\u03B9\u03BA\u03CC \u03C3\u03BF\u03C5 site", re: /widget|φορμα κρατησεων στο|ενσωματωσ\w* (στο|στην) (site|ιστοσελιδα|ιστοτοπο)|embed/ },
+        { id: "googlereserve", g: "hospitality", w: 3, name: "\u039A\u03C1\u03B1\u03C4\u03AE\u03C3\u03B5\u03B9\u03C2 \u03B1\u03C0\u03CC Google \u03AE social", re: /reserve with google|κρατηση απο google|κρατησεισ απο google|instagram|κρατησεισ απο facebook/ },
+        { id: "guestcrm", g: "hospitality", w: 3, name: "\u0392\u03AC\u03C3\u03B7 \u03C0\u03B5\u03BB\u03B1\u03C4\u03CE\u03BD (CRM)", re: /\bcrm\b|βαση πελατων|προφιλ πελατ|guest (database|profiles?)/ },
+        { id: "qrmenu", g: "hospitality", w: 2, name: "\u03A8\u03B7\u03C6\u03B9\u03B1\u03BA\u03CC \u03BC\u03B5\u03BD\u03BF\u03CD \u03BC\u03B5 QR", re: /\bqr\b/ },
+        { id: "pos", g: "hospitality", w: 3, name: "\u03A3\u03CD\u03BD\u03B4\u03B5\u03C3\u03B7 \u03BC\u03B5 \u03C4\u03B1\u03BC\u03B5\u03AF\u03BF (POS)", re: /\bpos\b|ταμειακ|συνδεση με ταμειο/ },
+        { id: "orders", g: "hospitality", w: 2, name: "\u03A0\u03B1\u03C1\u03B1\u03B3\u03B3\u03B5\u03BB\u03AF\u03B5\u03C2 \u03AE delivery", re: /delivery|takeaway|παραγγελιες online|διανομη/ },
+        { id: "noshow", g: "hospitality", w: 3, name: "\u039C\u03B5\u03AF\u03C9\u03C3\u03B7 \u03C4\u03C9\u03BD no-show", re: /no[- ]?shows?|μη προσελευσ|μειωση των ακυρωσεων/ },
+        // εκπαίδευση και πιστοποιήσεις
+        { id: "asep", g: "education", w: 3, name: "\u0391\u03BD\u03B1\u03B3\u03BD\u03CE\u03C1\u03B9\u03C3\u03B7 \u0391\u03A3\u0395\u03A0 \u03BA\u03B1\u03B9 \u03BC\u03BF\u03C1\u03B9\u03BF\u03B4\u03CC\u03C4\u03B7\u03C3\u03B7", re: /ασεπ|μοριοδοτ/ },
+        { id: "onlineexam", g: "education", w: 3, name: "Online \u03B5\u03BE\u03AD\u03C4\u03B1\u03C3\u03B7 \u03B1\u03C0\u03CC \u03C4\u03BF \u03C3\u03C0\u03AF\u03C4\u03B9", re: /online εξετασ|τηλεξετασ|εξ αποστασεωσ|εξετασεισ online|εξεταση απο το σπιτι/ },
+        { id: "retake", g: "education", w: 3, name: "\u0394\u03C9\u03C1\u03B5\u03AC\u03BD \u03B5\u03C0\u03B1\u03BD\u03B5\u03BE\u03AD\u03C4\u03B1\u03C3\u03B7", re: /επανεξετασ|retake/ },
+        { id: "quickresults", g: "education", w: 3, name: "\u0393\u03C1\u03AE\u03B3\u03BF\u03C1\u03B1 \u03B1\u03C0\u03BF\u03C4\u03B5\u03BB\u03AD\u03C3\u03BC\u03B1\u03C4\u03B1", re: /αποτελεσματα (σε|εντος|μετα)|αμεσα αποτελεσματα|immediate results|πτυχιο σε \d+|σε \d+ (ημερεσ|εργασιμεσ)/ },
+        { id: "payafter", g: "education", w: 3, name: "\u03A0\u03BB\u03B7\u03C1\u03C9\u03BC\u03AE \u03BC\u03B5\u03C4\u03AC \u03C4\u03B7\u03BD \u03B5\u03C0\u03B9\u03C4\u03C5\u03C7\u03AF\u03B1", re: /πληρωμη μετα την επιτυχια|πληρωνεστε μετα|pay after/ },
+        { id: "lifetime", g: "education", w: 2, name: "\u0399\u03C3\u03C7\u03CD\u03C2 \u03B5\u03C6\u2019 \u03CC\u03C1\u03BF\u03C5 \u03B6\u03C9\u03AE\u03C2", re: /εφ ορου ζωης|δια βιου ισχυ|lifetime valid|ισχυ δια βιου/ },
+        { id: "mocktests", g: "education", w: 2, name: "\u0394\u03B5\u03AF\u03B3\u03BC\u03B1\u03C4\u03B1 \u03BA\u03B1\u03B9 \u03C4\u03B5\u03C3\u03C4 \u03C0\u03C1\u03BF\u03C3\u03BF\u03BC\u03BF\u03AF\u03C9\u03C3\u03B7\u03C2", re: /δειγματα|προσομοιωσ|mock tests?|practice tests?|δωρεαν τεστ/ },
+        // συμβουλευτική
+        { id: "costing", g: "consulting", w: 3, name: "\u039A\u03BF\u03C3\u03C4\u03BF\u03BB\u03CC\u03B3\u03B7\u03C3\u03B7 \u03BC\u03B5\u03BD\u03BF\u03CD", re: /κοστολογ|menu engineering|food cost/ },
+        { id: "training", g: "consulting", w: 3, name: "\u0395\u03BA\u03C0\u03B1\u03AF\u03B4\u03B5\u03C5\u03C3\u03B7 \u03C0\u03C1\u03BF\u03C3\u03C9\u03C0\u03B9\u03BA\u03BF\u03CD", re: /εκπαιδευση (του )?προσωπικου|staff training|εκπαιδευση ομαδασ|εκπαιδευση ομαδων/ },
+        { id: "bizplan", g: "consulting", w: 3, name: "\u0395\u03C0\u03B9\u03C7\u03B5\u03B9\u03C1\u03B7\u03BC\u03B1\u03C4\u03B9\u03BA\u03CC \u03C0\u03BB\u03AC\u03BD\u03BF \u03BA\u03B1\u03B9 \u03BC\u03B5\u03BB\u03AD\u03C4\u03B5\u03C2 \u03B2\u03B9\u03C9\u03C3\u03B9\u03BC\u03CC\u03C4\u03B7\u03C4\u03B1\u03C2", re: /επιχειρηματικο (σχεδιο|πλανο)|business plan|μελετη βιωσιμοτητασ|μελετεσ βιωσιμοτητασ|οικονομοτεχνικ/ },
+        { id: "funding", g: "consulting", w: 3, name: "\u03A7\u03C1\u03B7\u03BC\u03B1\u03C4\u03BF\u03B4\u03CC\u03C4\u03B7\u03C3\u03B7 \u03BA\u03B1\u03B9 \u03B5\u03C0\u03B9\u03B4\u03BF\u03C4\u03AE\u03C3\u03B5\u03B9\u03C2", re: /επιδοτησ|εσπα|χρηματοδοτ|leader/ },
+        { id: "concept", g: "consulting", w: 3, name: "\u03A3\u03C7\u03B5\u03B4\u03B9\u03B1\u03C3\u03BC\u03CC\u03C2 concept \u03BD\u03AD\u03B1\u03C2 \u03B5\u03C0\u03B9\u03C7\u03B5\u03AF\u03C1\u03B7\u03C3\u03B7\u03C2", re: /concept|νεου εστιατοριου|σχεδιασμοσ (νεασ )?επιχειρησησ|εγκαινι/ },
+        { id: "licences", g: "consulting", w: 3, name: "\u0386\u03B4\u03B5\u03B9\u03B5\u03C2 \u03BA\u03B1\u03B9 \u03BD\u03BF\u03BC\u03B9\u03BC\u03BF\u03C0\u03BF\u03AF\u03B7\u03C3\u03B7", re: /αδει(α|εσ) (λειτουργι|καταστημ)|νομιμοποιησ|υγειονομικ/ }
+      ];
+      CAPS.forEach(function(c) {
+        c.re = new RegExp(c.re.source.replace(/ς/g, "\u03C3"));
+      });
+      function detectCaps(mainText, rawText) {
+        var nt = normGr(mainText), same = nt.length === mainText.length, out = {};
+        CAPS.forEach(function(c) {
+          var m = c.re.exec(nt);
+          if (!m) return;
+          out[c.id] = same ? sentenceAt(mainText, m.index) : sentenceAt(nt, m.index);
+        });
+        return out;
+      }
+      var FEAT_SKIP = /^(αρχικη|home|επικοινωνια|contact|σχετικα|about|menu|μενου|υπηρεσιες|services|blog|news|πολιτικη|οροι|privacy|cookies|newsletter|follow|ακολουθηστε|copyright|search|αναζητηση|login|εγγραφη|γιατι|why)/;
       function COVID_RE_G() {
         return new RegExp(COVID_RE.source, "i");
       }
@@ -14982,6 +15047,48 @@ var require_analyzer = __commonJS({
           text = clean(clone.textContent);
         }
         var pText = clean(q("p").map(spaced).join(" "));
+        var mainText = "";
+        if (body) {
+          var c2 = body.cloneNode(true);
+          Array.prototype.slice.call(c2.querySelectorAll("script,style,noscript,template,svg,iframe,nav,header,footer,aside")).forEach(function(n) {
+            if (n.parentNode) n.parentNode.removeChild(n);
+          });
+          Array.prototype.slice.call(c2.querySelectorAll("a,li,p,h1,h2,h3,h4,h5,h6,div,span,button,td,th,label,option,section,article,br,dt,dd")).forEach(function(n) {
+            try {
+              n.appendChild(doc.createTextNode(" "));
+              if (n.parentNode) n.parentNode.insertBefore(doc.createTextNode(" "), n);
+            } catch (e) {
+            }
+          });
+          mainText = clean(c2.textContent);
+        }
+        if (mainText.length < 200) mainText = text;
+        var inNav = function(el) {
+          return !!(el.closest && el.closest("nav,header,footer,aside"));
+        };
+        var features = [], seenF = {};
+        q("h2,h3,h4").forEach(function(h) {
+          if (inNav(h)) return;
+          var t = spaced(h);
+          if (len(t) < 4 || len(t) > 90 || FEAT_SKIP.test(normGr(t))) return;
+          var nx = h.nextElementSibling, d = "";
+          if (nx && /^(P|DIV|SPAN|UL)$/i.test(nx.tagName)) d = short(spaced(nx), 150);
+          var k = normGr(t);
+          if (seenF[k]) return;
+          seenF[k] = 1;
+          features.push({ t, d });
+        });
+        q("li").forEach(function(li) {
+          if (inNav(li)) return;
+          var t = spaced(li);
+          if (len(t) < 18 || len(t) > 140) return;
+          var k = normGr(t);
+          if (seenF[k]) return;
+          seenF[k] = 1;
+          features.push({ t, d: "" });
+        });
+        features = features.slice(0, 60);
+        var capsHit = detectCaps(mainText, text);
         var words = text ? text.split(/\s+/).filter(function(w) {
           return len(w) > 1;
         }).length : 0;
@@ -15140,6 +15247,8 @@ var require_analyzer = __commonJS({
           scripts: q("script[src]").length,
           styles: q('link[rel~="stylesheet"]').length,
           autoplayVideo: q("video[autoplay]").length > 0,
+          features,
+          caps: capsHit,
           covidHit,
           staleHit,
           isNews,
@@ -15967,6 +16076,17 @@ var require_analyzer = __commonJS({
           if (!news || mx > news.latest) news = { path: pathOf(p.url), latest: mx, count: all.length };
         });
         union.news = news;
+        var capMap = {}, feats = [];
+        pages.forEach(function(p) {
+          Object.keys(p.caps || {}).forEach(function(id) {
+            if (!capMap[id]) capMap[id] = { path: pathOf(p.url), quote: p.caps[id] };
+          });
+          (p.features || []).forEach(function(f) {
+            feats.push({ t: f.t, d: f.d, path: pathOf(p.url) });
+          });
+        });
+        union.capMap = capMap;
+        union.features = feats;
         union.phones = uniq(union.phones);
         union.emails = uniq(union.emails);
         var host = hostOf(home.url || ctx.url || "");
@@ -16040,12 +16160,16 @@ var require_analyzer = __commonJS({
       function trimDot(x) {
         return clean(x).replace(/[.\s]+$/, "");
       }
-      function buildStory(name, score, band, positives, negatives, quick, potential, pageNotes) {
+      function buildStory(name, score, band, positives, negatives, quick, potential, pageNotes, feat) {
         var paras = [];
         var strong = positives.filter(function(i) {
           return !TRIVIAL_STORY[i.id];
         }).slice(0, 2);
-        var p1 = "\u03A4\u03BF " + name + " \u03B2\u03B1\u03B8\u03BC\u03BF\u03BB\u03BF\u03B3\u03B5\u03AF\u03C4\u03B1\u03B9 \u03BC\u03B5 " + score + "/100 (" + band.label.toLowerCase() + "). ";
+        var offer = "";
+        if (feat && feat.length) offer = "\u03A4\u03BF site \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03B5\u03B9 \u03C9\u03C2 \u03B2\u03B1\u03C3\u03B9\u03BA\u03AC \u03C3\u03B7\u03BC\u03B5\u03AF\u03B1: " + feat.slice(0, 3).map(function(f) {
+          return "\xAB" + short(f.t, 60) + "\xBB";
+        }).join(", ") + ". ";
+        var p1 = offer + "\u03A4\u03BF " + name + " \u03B2\u03B1\u03B8\u03BC\u03BF\u03BB\u03BF\u03B3\u03B5\u03AF\u03C4\u03B1\u03B9 \u03BC\u03B5 " + score + "/100 (" + band.label.toLowerCase() + "). ";
         if (strong.length) p1 += "\u0391\u03C5\u03C4\u03CC \u03C0\u03BF\u03C5 \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03B5\u03AF \u03BA\u03B1\u03BB\u03AC: " + strong.map(function(i) {
           return i.name.toLowerCase().replace(/google/g, "Google") + (i.evidence[0] ? " (" + trimDot(i.evidence[0]) + ")" : "");
         }).join(" \u03BA\u03B1\u03B9 ") + ".";
@@ -16159,12 +16283,13 @@ var require_analyzer = __commonJS({
           }),
           fixes: buildFixes(S, items),
           summary: makeSummary(score, positives, negatives, potential),
+          func: buildFunc(S),
           story: null,
           gbp: null
         };
         report.story = buildStory(S.brand, score, band, positives, negatives, quick, potential, report.pages.map(function(x) {
           return { url: x.url, notes: x.notes };
-        }));
+        }), report.func.features);
         return report;
       }
       function makeSummary(score, pos, neg, potential) {
@@ -16546,6 +16671,101 @@ var require_analyzer = __commonJS({
         else text.push("\u039F \u03AD\u03BD\u03B1\u03C2 \u03B1\u03C0\u03CC \u03C4\u03BF\u03C5\u03C2 \u03B1\u03BD\u03C4\u03B1\u03B3\u03C9\u03BD\u03B9\u03C3\u03C4\u03AD\u03C2 \u03C0\u03C1\u03BF\u03B7\u03B3\u03B5\u03AF\u03C4\u03B1\u03B9 \u03BA\u03B1\u03B9 \u03BF \u03AC\u03BB\u03BB\u03BF\u03C2 \u03C5\u03C3\u03C4\u03B5\u03C1\u03B5\u03AF \u03C3\u03B5 \u03C3\u03C7\u03AD\u03C3\u03B7 \u03BC\u03B5 \u03C3\u03AD\u03BD\u03B1.");
         return { per, common, strong, text: text.join(" ") };
       }
+      function buildFunc(S) {
+        var caps = CAPS.filter(function(c) {
+          return S.union.capMap[c.id];
+        }).map(function(c) {
+          var h = S.union.capMap[c.id];
+          return { id: c.id, name: c.name, g: c.g, w: c.w, path: h.path, quote: h.quote };
+        }).sort(function(a, b) {
+          return b.w - a.w;
+        });
+        return { caps, features: S.union.features.slice(0, 40) };
+      }
+      function stemsOf(t) {
+        return uniq(normGr(t).match(new RegExp("\\p{L}{5,}", "gu")) || []).filter(function(w) {
+          return !STOP.has(w);
+        }).map(function(w) {
+          return w.slice(0, 6);
+        });
+      }
+      function featMatch(a, b) {
+        var A = stemsOf(a.t + " " + a.d), B = stemsOf(b.t + " " + b.d);
+        var common = A.filter(function(x) {
+          return B.indexOf(x) >= 0;
+        }).length;
+        if (common >= 2) return true;
+        var at = stemsOf(a.t), bt = stemsOf(b.t);
+        return common >= 1 && at.length <= 2 && at.some(function(x) {
+          return bt.indexOf(x) >= 0;
+        });
+      }
+      function uniqueFeatures(mine, theirs) {
+        var out = (mine || []).filter(function(f) {
+          return !(theirs || []).some(function(g) {
+            return featMatch(f, g);
+          });
+        });
+        out.sort(function(a, b) {
+          return (b.d ? 2 : 0) + (/\d/.test(b.t + b.d) ? 1 : 0) - ((a.d ? 2 : 0) + (/\d/.test(a.t + a.d) ? 1 : 0));
+        });
+        return out;
+      }
+      function listNames(arr, n) {
+        return arr.slice(0, n).map(function(c) {
+          return c.name.charAt(0).toLowerCase() + c.name.slice(1);
+        }).join(", ") + (arr.length > n ? " \u03BA\u03B1\u03B9 \u03AC\u03BB\u03BB\u03B5\u03C2 " + (arr.length - n) : "");
+      }
+      function compareFunctions(me, rival, rivalName) {
+        var mc = {}, rc = {};
+        me.func.caps.forEach(function(c) {
+          mc[c.id] = c;
+        });
+        rival.func.caps.forEach(function(c) {
+          rc[c.id] = c;
+        });
+        var rOnly = rival.func.caps.filter(function(c) {
+          return !mc[c.id];
+        }), mOnly = me.func.caps.filter(function(c) {
+          return !rc[c.id];
+        });
+        var both = me.func.caps.filter(function(c) {
+          return rc[c.id];
+        });
+        var fR = uniqueFeatures(rival.func.features, me.func.features).slice(0, 4), fM = uniqueFeatures(me.func.features, rival.func.features).slice(0, 4);
+        var t = [];
+        if (rOnly.length) t.push("\u03A3\u03C4\u03BF site \u03C4\u03BF\u03C5 " + rivalName + " \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03BF\u03BD\u03C4\u03B1\u03B9 " + rOnly.length + " " + plural(rOnly.length, "\u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03AF\u03B1", "\u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03AF\u03B5\u03C2") + " \u03C0\u03BF\u03C5 \u03B4\u03B5\u03BD \u03B5\u03BD\u03C4\u03BF\u03C0\u03AF\u03C3\u03C4\u03B7\u03BA\u03B1\u03BD \u03C3\u03C4\u03BF \u03B4\u03B9\u03BA\u03CC \u03C3\u03BF\u03C5: " + listNames(rOnly, 6) + ".");
+        else t.push("\u0394\u03B5\u03BD \u03B5\u03BD\u03C4\u03BF\u03C0\u03AF\u03C3\u03C4\u03B7\u03BA\u03B5 \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03AF\u03B1 \u03C3\u03C4\u03BF site \u03C4\u03BF\u03C5 " + rivalName + " \u03C0\u03BF\u03C5 \u03BD\u03B1 \u03BC\u03B7\u03BD \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03B5\u03C4\u03B1\u03B9 \u03BA\u03B1\u03B9 \u03C3\u03C4\u03BF \u03B4\u03B9\u03BA\u03CC \u03C3\u03BF\u03C5.");
+        if (mOnly.length) t.push("\u0395\u03C3\u03CD \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03B5\u03B9\u03C2 " + mOnly.length + " \u03C0\u03BF\u03C5 \u03B4\u03B5\u03BD \u03B5\u03BD\u03C4\u03BF\u03C0\u03AF\u03C3\u03C4\u03B7\u03BA\u03B1\u03BD \u03C3\u03B5 \u03B5\u03BA\u03B5\u03AF\u03BD\u03BF\u03BD: " + listNames(mOnly, 6) + ".");
+        else t.push("\u0394\u03B5\u03BD \u03B5\u03BD\u03C4\u03BF\u03C0\u03AF\u03C3\u03C4\u03B7\u03BA\u03B5 \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03AF\u03B1 \u03C0\u03BF\u03C5 \u03BD\u03B1 \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03B5\u03B9\u03C2 \u03B5\u03C3\u03CD \u03BA\u03B1\u03B9 \u03CC\u03C7\u03B9 \u03B5\u03BA\u03B5\u03AF\u03BD\u03BF\u03C2.");
+        if (both.length) t.push("\u039A\u03B1\u03B9 \u03BF\u03B9 \u03B4\u03CD\u03BF \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03B5\u03C4\u03B5: " + listNames(both, 6) + ".");
+        var verdict = rOnly.length > mOnly.length + 1 ? "\u039C\u03B5 \u03B2\u03AC\u03C3\u03B7 \u03CC\u03C3\u03B1 \u03B4\u03B7\u03BB\u03CE\u03BD\u03BF\u03C5\u03BD \u03C4\u03B1 sites, \u03C4\u03BF " + rivalName + " \u03BA\u03B1\u03BB\u03CD\u03C0\u03C4\u03B5\u03B9 \u03C0\u03B5\u03C1\u03B9\u03C3\u03C3\u03CC\u03C4\u03B5\u03C1\u03B5\u03C2 \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03AF\u03B5\u03C2." : mOnly.length > rOnly.length + 1 ? "\u039C\u03B5 \u03B2\u03AC\u03C3\u03B7 \u03CC\u03C3\u03B1 \u03B4\u03B7\u03BB\u03CE\u03BD\u03BF\u03C5\u03BD \u03C4\u03B1 sites, \u03B5\u03C3\u03CD \u03BA\u03B1\u03BB\u03CD\u03C0\u03C4\u03B5\u03B9\u03C2 \u03C0\u03B5\u03C1\u03B9\u03C3\u03C3\u03CC\u03C4\u03B5\u03C1\u03B5\u03C2 \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03AF\u03B5\u03C2." : "\u039C\u03B5 \u03B2\u03AC\u03C3\u03B7 \u03CC\u03C3\u03B1 \u03B4\u03B7\u03BB\u03CE\u03BD\u03BF\u03C5\u03BD \u03C4\u03B1 sites, \u03BA\u03B1\u03BB\u03CD\u03C0\u03C4\u03B5\u03C4\u03B5 \u03C0\u03B1\u03C1\u03CC\u03BC\u03BF\u03B9\u03BF \u03B5\u03CD\u03C1\u03BF\u03C2 \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03B9\u03CE\u03BD.";
+        return { name: rivalName, rOnly, mOnly, both, fR, fM, text: t.join(" "), verdict };
+      }
+      function functionsAll(me, rivals, names) {
+        var per = rivals.map(function(r, i) {
+          return compareFunctions(me, r, names[i]);
+        });
+        var common = per.length ? per[0].rOnly.filter(function(c) {
+          return per.every(function(p) {
+            return p.rOnly.some(function(x) {
+              return x.id === c.id;
+            });
+          });
+        }) : [];
+        var mine = per.length ? per[0].mOnly.filter(function(c) {
+          return per.every(function(p) {
+            return p.mOnly.some(function(x) {
+              return x.id === c.id;
+            });
+          });
+        }) : [];
+        var txt = [];
+        if (common.length) txt.push((rivals.length > 1 ? "\u039A\u03B1\u03B9 \u03BF\u03B9 " + rivals.length + " \u03B1\u03BD\u03C4\u03B1\u03B3\u03C9\u03BD\u03B9\u03C3\u03C4\u03AD\u03C2 \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03BF\u03C5\u03BD" : "\u039F \u03B1\u03BD\u03C4\u03B1\u03B3\u03C9\u03BD\u03B9\u03C3\u03C4\u03AE\u03C2 \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03B5\u03B9") + " \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03AF\u03B5\u03C2 \u03C0\u03BF\u03C5 \u03B4\u03B5\u03BD \u03B5\u03BD\u03C4\u03BF\u03C0\u03AF\u03C3\u03C4\u03B7\u03BA\u03B1\u03BD \u03C3\u03B5 \u03C3\u03AD\u03BD\u03B1: " + listNames(common, 6) + ". \u0391\u03BD \u03C4\u03B9\u03C2 \u03C0\u03C1\u03BF\u03C3\u03C6\u03AD\u03C1\u03B5\u03B9\u03C2 \u03AE\u03B4\u03B7, \u03B1\u03BE\u03AF\u03B6\u03B5\u03B9 \u03BD\u03B1 \u03C6\u03B1\u03AF\u03BD\u03BF\u03BD\u03C4\u03B1\u03B9 \u03C3\u03C4\u03BF site.");
+        if (mine.length) txt.push("\u039C\u03CC\u03BD\u03BF \u03B5\u03C3\u03CD \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03B5\u03B9\u03C2: " + listNames(mine, 6) + ".");
+        if (!common.length && !mine.length) txt.push("\u0394\u03B5\u03BD \u03B2\u03C1\u03AD\u03B8\u03B7\u03BA\u03B5 \u03BE\u03B5\u03BA\u03AC\u03B8\u03B1\u03C1\u03B7 \u03B4\u03B9\u03B1\u03C6\u03BF\u03C1\u03AC \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03B9\u03CE\u03BD \u03C0\u03BF\u03C5 \u03BD\u03B1 \u03B9\u03C3\u03C7\u03CD\u03B5\u03B9 \u03B3\u03B9\u03B1 \u03CC\u03BB\u03BF\u03C5\u03C2 \u03C4\u03BF\u03C5\u03C2 \u03B1\u03BD\u03C4\u03B1\u03B3\u03C9\u03BD\u03B9\u03C3\u03C4\u03AD\u03C2.");
+        return { per, common, mine, text: txt.join(" ") };
+      }
       function compareReports(A, B) {
         var map = {};
         function put(rep, key) {
@@ -16637,7 +16857,7 @@ var require_analyzer = __commonJS({
         var doc = new DOMParser().parseFromString(html, "text/html");
         return analyzeSite([{ doc, url: opts.url || "", html, size: html.length }], { mode: "paste", now: opts.now });
       }
-      return { __test: { datesIn }, narrate, narrateAll, isSoftware, osmFilters, buildQuery, filterCandidates, guessCategory, guessCity, pickCompetitors, compareMany, psiUrl, parsePagespeed, CATS, CHECKS, extract, analyzeSite, analyzeHtml, analyzeGbp, compareReports, PASS, WARN };
+      return { compareFunctions, functionsAll, CAPS, __test: { datesIn }, narrate, narrateAll, isSoftware, osmFilters, buildQuery, filterCandidates, guessCategory, guessCity, pickCompetitors, compareMany, psiUrl, parsePagespeed, CATS, CHECKS, extract, analyzeSite, analyzeHtml, analyzeGbp, compareReports, PASS, WARN };
     });
   }
 });
@@ -16738,9 +16958,15 @@ function parseDoc(t) {
 function pickInternalPages(homeDoc, homeUrl, max) {
   const home = new URL(homeUrl);
   const hostNorm = home.hostname.replace(/^www\./, "");
-  const groups = [[/contact|επικοινων/i, "contact"], [/about|σχετικ|εταιρ|εμάς|about-us/i, "about"], [/service|υπηρεσ|προϊόν|products|menu|courses|μαθήματα|certif/i, "services"], [/blog|news|ειδήσ|νέα|articles/i, "news"]];
-  const chosen = {};
-  const out = [];
+  const groups = [
+    [/service|υπηρεσ|προϊόν|προιον|products|menu|courses|μαθήματα|certif|λύσεις|solutions/i, "services"],
+    [/feature|λειτουργ|χαρακτηριστικ|how-it-works|πως λειτουργεί|πώς λειτουργεί/i, "features"],
+    [/pricing|τιμ[έεή]|πακέτ|packages|plans/i, "pricing"],
+    [/about|σχετικ|εταιρ|εμάς|about-us/i, "about"],
+    [/contact|επικοινων/i, "contact"],
+    [/blog|news|ειδήσ|νέα|articles/i, "news"]
+  ];
+  const cands = [];
   Array.from(homeDoc.querySelectorAll("a[href]")).forEach((a) => {
     let u;
     try {
@@ -16752,16 +16978,15 @@ function pickInternalPages(homeDoc, homeUrl, max) {
     if (/\.(pdf|jpe?g|png|gif|webp|zip|docx?|xlsx?|mp4|svg)$/i.test(u.pathname)) return;
     u.hash = "";
     if (u.pathname === home.pathname) return;
-    const label = (a.textContent || "") + " " + u.pathname;
-    for (const [re, key] of groups) {
-      if (!chosen[key] && re.test(label)) {
-        chosen[key] = true;
-        out.push(u.href);
-        break;
-      }
-    }
+    cands.push({ href: u.href, label: (a.textContent || "") + " " + u.pathname });
   });
-  return out.slice(0, max);
+  const out = [];
+  for (const [re, key] of groups) {
+    const hit = cands.find((c) => re.test(c.label) && !out.includes(c.href));
+    if (hit) out.push(hit.href);
+    if (out.length >= max) break;
+  }
+  return out;
 }
 async function checkRobots(origin) {
   const info = { robotsFound: false, sitemapFound: false, blocksAll: false };
@@ -16797,7 +17022,7 @@ async function analyzeUrl(input, opts) {
   if (home.status >= 400) throw new Error("\u03A4\u03BF site \u03B1\u03C0\u03AC\u03BD\u03C4\u03B7\u03C3\u03B5 \u03BC\u03B5 \u03BA\u03C9\u03B4\u03B9\u03BA\u03CC " + home.status + ". \u0388\u03BB\u03B5\u03B3\u03BE\u03B5 \u03C4\u03B7 \u03B4\u03B9\u03B5\u03CD\u03B8\u03C5\u03BD\u03C3\u03B7.");
   const homeDoc = parseDoc(home.text);
   const origin = new URL(home.url).origin;
-  const others = pickInternalPages(homeDoc, home.url, 4);
+  const others = pickInternalPages(homeDoc, home.url, 5);
   const [robots, ...pages] = await Promise.all([
     checkRobots(origin),
     ...others.map((p) => fetchText(p, { html: true, timeout: 4500 }).catch(() => null))

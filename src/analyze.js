@@ -92,19 +92,30 @@ function parseDoc(t) {
 
 function pickInternalPages(homeDoc, homeUrl, max) {
   const home = new URL(homeUrl); const hostNorm = home.hostname.replace(/^www\./, '');
-  const groups = [[/contact|επικοινων/i, 'contact'], [/about|σχετικ|εταιρ|εμάς|about-us/i, 'about'], [/service|υπηρεσ|προϊόν|products|menu|courses|μαθήματα|certif/i, 'services'], [/blog|news|ειδήσ|νέα|articles/i, 'news']];
-  const chosen = {}; const out = [];
+  // σειρά προτεραιότητας: πρώτα οι σελίδες που περιγράφουν τι κάνει η επιχείρηση
+  const groups = [
+    [/service|υπηρεσ|προϊόν|προιον|products|menu|courses|μαθήματα|certif|λύσεις|solutions/i, 'services'],
+    [/feature|λειτουργ|χαρακτηριστικ|how-it-works|πως λειτουργεί|πώς λειτουργεί/i, 'features'],
+    [/pricing|τιμ[έεή]|πακέτ|packages|plans/i, 'pricing'],
+    [/about|σχετικ|εταιρ|εμάς|about-us/i, 'about'],
+    [/contact|επικοινων/i, 'contact'],
+    [/blog|news|ειδήσ|νέα|articles/i, 'news']
+  ];
+  const cands = [];
   Array.from(homeDoc.querySelectorAll('a[href]')).forEach((a) => {
     let u; try { u = new URL(a.getAttribute('href'), home); } catch (e) { return; }
     if (!/^https?:$/.test(u.protocol) || u.hostname.replace(/^www\./, '') !== hostNorm) return;
     if (/\.(pdf|jpe?g|png|gif|webp|zip|docx?|xlsx?|mp4|svg)$/i.test(u.pathname)) return;
     u.hash = ''; if (u.pathname === home.pathname) return;
-    const label = (a.textContent || '') + ' ' + u.pathname;
-    for (const [re, key] of groups) {
-      if (!chosen[key] && re.test(label)) { chosen[key] = true; out.push(u.href); break; }
-    }
+    cands.push({ href: u.href, label: (a.textContent || '') + ' ' + u.pathname });
   });
-  return out.slice(0, max);
+  const out = [];
+  for (const [re, key] of groups) {
+    const hit = cands.find((c) => re.test(c.label) && !out.includes(c.href));
+    if (hit) out.push(hit.href);
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 async function checkRobots(origin) {
@@ -136,7 +147,7 @@ async function analyzeUrl(input, opts) {
   if (home.status >= 400) throw new Error('Το site απάντησε με κωδικό ' + home.status + '. Έλεγξε τη διεύθυνση.');
   const homeDoc = parseDoc(home.text);
   const origin = new URL(home.url).origin;
-  const others = pickInternalPages(homeDoc, home.url, 4);
+  const others = pickInternalPages(homeDoc, home.url, 5);
   const [robots, ...pages] = await Promise.all([
     checkRobots(origin),
     ...others.map((p) => fetchText(p, { html: true, timeout: 4500 }).catch(() => null))
