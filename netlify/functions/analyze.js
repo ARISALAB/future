@@ -14812,6 +14812,79 @@ var require_analyzer = __commonJS({
       function wordsOf(t) {
         return normGr(t).match(new RegExp("\\p{L}+", "gu")) || [];
       }
+      var STALE_RE = /μέχρι\s+νεωτέρας|μέχρι\s+νεότερης|έως\s+νεωτέρας|until\s+further\s+notice|προσωρινά\s+κλειστ|temporarily\s+closed/i;
+      var MONTHS_GR = ["\u0399\u03B1\u03BD\u03BF\u03C5\u03AC\u03C1\u03B9\u03BF\u03C2", "\u03A6\u03B5\u03B2\u03C1\u03BF\u03C5\u03AC\u03C1\u03B9\u03BF\u03C2", "\u039C\u03AC\u03C1\u03C4\u03B9\u03BF\u03C2", "\u0391\u03C0\u03C1\u03AF\u03BB\u03B9\u03BF\u03C2", "\u039C\u03AC\u03B9\u03BF\u03C2", "\u0399\u03BF\u03CD\u03BD\u03B9\u03BF\u03C2", "\u0399\u03BF\u03CD\u03BB\u03B9\u03BF\u03C2", "\u0391\u03CD\u03B3\u03BF\u03C5\u03C3\u03C4\u03BF\u03C2", "\u03A3\u03B5\u03C0\u03C4\u03AD\u03BC\u03B2\u03C1\u03B9\u03BF\u03C2", "\u039F\u03BA\u03C4\u03CE\u03B2\u03C1\u03B9\u03BF\u03C2", "\u039D\u03BF\u03AD\u03BC\u03B2\u03C1\u03B9\u03BF\u03C2", "\u0394\u03B5\u03BA\u03AD\u03BC\u03B2\u03C1\u03B9\u03BF\u03C2"];
+      var MON_GR = { \u03B9\u03B1\u03BD\u03BF\u03C5\u03B1\u03C1\u03B9: 0, \u03C6\u03B5\u03B2\u03C1\u03BF\u03C5\u03B1\u03C1\u03B9: 1, \u03BC\u03B1\u03C1\u03C4\u03B9: 2, \u03B1\u03C0\u03C1\u03B9\u03BB\u03B9: 3, \u03BC\u03B1\u03B9\u03BF\u03C5: 4, \u03BC\u03B1\u03B9\u03BF: 4, \u03B9\u03BF\u03C5\u03BD\u03B9: 5, \u03B9\u03BF\u03C5\u03BB\u03B9: 6, \u03B1\u03C5\u03B3\u03BF\u03C5\u03C3\u03C4: 7, \u03C3\u03B5\u03C0\u03C4\u03B5\u03BC\u03B2\u03C1\u03B9: 8, \u03BF\u03BA\u03C4\u03C9\u03B2\u03C1\u03B9: 9, \u03BD\u03BF\u03B5\u03BC\u03B2\u03C1\u03B9: 10, \u03B4\u03B5\u03BA\u03B5\u03BC\u03B2\u03C1\u03B9: 11 };
+      var MON_EN = { january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2, april: 3, apr: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6, august: 7, aug: 7, september: 8, sept: 8, sep: 8, october: 9, oct: 9, november: 10, nov: 10, december: 11, dec: 11 };
+      function pathOf(u) {
+        try {
+          var p = new URL(u).pathname || "/";
+          return p.length > 1 ? p.replace(/\/+$/, "") : p;
+        } catch (e) {
+          return u || "/";
+        }
+      }
+      function datesIn(text, now) {
+        var t = normGr(text), out = [], m, lim = (now || Date.now()) + 864e5;
+        function add(y, mo, d) {
+          var dt = Date.UTC(y, mo, Math.min(Math.max(d, 1), 28));
+          if (y >= 2e3 && dt <= lim) out.push(dt);
+        }
+        var g = /(?:(\d{1,2})\s+)?(ιανουαρι|φεβρουαρι|μαρτι|απριλι|μαιου|μαιο|ιουνι|ιουλι|αυγουστ|σεπτεμβρι|οκτωβρι|νοεμβρι|δεκεμβρι)[α-ωa-z]*\.?\s+(?:(\d{1,2}),?\s+)?(20\d{2})/g;
+        while (m = g.exec(t)) add(+m[4], MON_GR[m[2]], +(m[1] || m[3] || 1));
+        var e = /(?:\b(\d{1,2})\s+)?\b(january|february|march|april|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sept|sep|oct|nov|dec)\b\.?\s+(?:(\d{1,2})(?:st|nd|rd|th)?,?\s+)?(20\d{2})/g;
+        while (m = e.exec(t)) add(+m[4], MON_EN[m[2]], +(m[1] || m[3] || 1));
+        var n = /\b(\d{1,2})[\/.](\d{1,2})[\/.](20\d{2})\b/g;
+        while (m = n.exec(t)) {
+          if (+m[2] >= 1 && +m[2] <= 12) add(+m[3], +m[2] - 1, +m[1]);
+        }
+        var iso = /\b(20\d{2})-(\d{2})-(\d{2})\b/g;
+        while (m = iso.exec(t)) {
+          if (+m[2] >= 1 && +m[2] <= 12) add(+m[1], +m[2] - 1, +m[3]);
+        }
+        return out;
+      }
+      function fmtMonth(t) {
+        var d = new Date(t);
+        return MONTHS_GR[d.getUTCMonth()] + " " + d.getUTCFullYear();
+      }
+      function ageText(now, t) {
+        var mo = Math.max(0, Math.round((now - t) / 26298e5));
+        if (mo < 24) return "\u03C0\u03C1\u03B9\u03BD " + mo + " " + (mo === 1 ? "\u03BC\u03AE\u03BD\u03B1" : "\u03BC\u03AE\u03BD\u03B5\u03C2");
+        var y = Math.floor(mo / 12);
+        return "\u03C0\u03C1\u03B9\u03BD " + y + " " + (y === 1 ? "\u03C7\u03C1\u03CC\u03BD\u03BF" : "\u03C7\u03C1\u03CC\u03BD\u03B9\u03B1");
+      }
+      function sentenceWith(text, re) {
+        var m = re.exec(text);
+        if (!m) return "";
+        var i = m.index, start = 0, end = text.length, k, a;
+        [". ", "! ", "? ", "\xB7 ", "; "].forEach(function(sep) {
+          a = text.lastIndexOf(sep, i);
+          if (a >= 0 && a + 2 > start && a < i) start = a + 2;
+        });
+        [". ", "! ", "? ", "\xB7 ", "; "].forEach(function(sep) {
+          k = text.indexOf(sep, i);
+          if (k >= 0 && k + 1 < end) end = k + 1;
+        });
+        return short(text.slice(start, end), 190);
+      }
+      function COVID_RE_G() {
+        return new RegExp(COVID_RE.source, "i");
+      }
+      function STALE_RE_G() {
+        return new RegExp(STALE_RE.source, "i");
+      }
+      function whereText(path) {
+        return path === "/" ? "\u03A3\u03C4\u03B7\u03BD \u03B1\u03C1\u03C7\u03B9\u03BA\u03AE \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1" : "\u03A3\u03C4\u03B7 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1 " + path;
+      }
+      function pathOfSafe(u) {
+        return u ? pathOf(u) : "";
+      }
+      function titleElText(doc) {
+        var t = doc.querySelector("title");
+        return t ? t.textContent : "";
+      }
+      var NEWS_RE = /(news|blog|articles?|announcements?|press|ειδησ|νεα\b|αρθρα|ανακοινωσ)/i;
       function extract(doc, ctx) {
         ctx = ctx || {};
         var base = ctx.url || null;
@@ -14999,6 +15072,16 @@ var require_analyzer = __commonJS({
           if (i.alt && LANG_WORDS.test(i.alt.trim())) langSwitch.push(i.alt.trim().toLowerCase());
         });
         langSwitch = uniq(langSwitch);
+        var covidHit = sentenceWith(text, COVID_RE_G());
+        var staleHit = sentenceWith(text, STALE_RE_G());
+        var isNews = NEWS_RE.test(pathOfSafe(base) + " " + clean(titleElText(doc)));
+        var textDates = isNews || ctx.home === true ? datesIn(text, ctx.now) : [];
+        var hasPrice = /(€\s?\d|\d\s?€|\bEUR\b\s?\d|από\s+\d+\s?€|\$\s?\d)/i.test(text);
+        var ctaAny = links.some(function(l) {
+          return CTA_RE.test(l.name) && !l.hidden;
+        }) || buttons.some(function(b) {
+          return CTA_RE.test(b);
+        });
         var ogImage = meta("og:image");
         var robotsMeta = meta("robots");
         var canonicalEl = doc.querySelector('link[rel="canonical"]');
@@ -15057,6 +15140,12 @@ var require_analyzer = __commonJS({
           scripts: q("script[src]").length,
           styles: q('link[rel~="stylesheet"]').length,
           autoplayVideo: q("video[autoplay]").length > 0,
+          covidHit,
+          staleHit,
+          isNews,
+          textDates,
+          hasPrice,
+          ctaAny,
           ratingSchema: ld.some(function(n) {
             return n && (n.aggregateRating || n.review);
           })
@@ -15436,10 +15525,16 @@ var require_analyzer = __commonJS({
                 ev.push("\u03A4\u03BF footer \u03B3\u03C1\u03AC\u03C6\u03B5\u03B9 \xAB\xA9 " + yr + "\xBB.");
               } else ev.push("\u03A4\u03BF \u03AD\u03C4\u03BF\u03C2 \u03C3\u03C4\u03BF footer \u03B5\u03AF\u03BD\u03B1\u03B9 " + yr + ".");
             }
-            if (S.union.covid) {
+            var ch = S.union.covidHits[0], sh = S.union.staleHits[0];
+            if (ch) {
               any = true;
               s -= 0.4;
-              ev.push("\u0395\u03BD\u03C4\u03BF\u03C0\u03AF\u03C3\u03C4\u03B7\u03BA\u03B5 \u03B1\u03BA\u03CC\u03BC\u03B1 \u03B1\u03BD\u03B1\u03C6\u03BF\u03C1\u03AC \u03C3\u03C4\u03B7\u03BD \u03C0\u03B1\u03BD\u03B4\u03B7\u03BC\u03AF\u03B1 (Covid).");
+              ev.push(whereText(ch.path) + " \u03C5\u03C0\u03AC\u03C1\u03C7\u03B5\u03B9 \u03B1\u03BA\u03CC\u03BC\u03B1 \u03B1\u03BD\u03B1\u03C6\u03BF\u03C1\u03AC \u03C3\u03C4\u03B7\u03BD \u03C0\u03B1\u03BD\u03B4\u03B7\u03BC\u03AF\u03B1: \xAB" + ch.snippet + "\xBB");
+            }
+            if (sh && (!ch || sh.snippet !== ch.snippet)) {
+              any = true;
+              s -= 0.3;
+              ev.push(whereText(sh.path) + " \u03C5\u03C0\u03AC\u03C1\u03C7\u03B5\u03B9 \u03B5\u03B9\u03B4\u03BF\u03C0\u03BF\u03AF\u03B7\u03C3\u03B7 \u03C0\u03BF\u03C5 \u03B4\u03B5\u03BD \u03AD\u03C7\u03B5\u03B9 \u03BB\u03AE\u03BE\u03B5\u03B9: \xAB" + sh.snippet + "\xBB");
             }
             if (S.union.lastDate) {
               any = true;
@@ -15451,6 +15546,21 @@ var require_analyzer = __commonJS({
             }
             if (!any) return null;
             return { s: clamp(s, 0, 1), ev };
+          }
+        },
+        {
+          id: "news",
+          cat: "trust",
+          w: 3,
+          name: "\u039D\u03AD\u03B1 \u03BA\u03B1\u03B9 \u03B5\u03BD\u03B7\u03BC\u03B5\u03C1\u03CE\u03C3\u03B5\u03B9\u03C2",
+          why: "\u039C\u03B9\u03B1 \u03B5\u03BD\u03CC\u03C4\u03B7\u03C4\u03B1 \u03BD\u03AD\u03C9\u03BD \u03C0\u03BF\u03C5 \u03B4\u03B5\u03BD \u03B5\u03BD\u03B7\u03BC\u03B5\u03C1\u03CE\u03BD\u03B5\u03C4\u03B1\u03B9 \u03B4\u03AF\u03BD\u03B5\u03B9 \u03C4\u03B7\u03BD \u03B5\u03BD\u03C4\u03CD\u03C0\u03C9\u03C3\u03B7 \u03CC\u03C4\u03B9 \u03B7 \u03B5\u03C0\u03B9\u03C7\u03B5\u03AF\u03C1\u03B7\u03C3\u03B7 \u03AD\u03C7\u03B5\u03B9 \u03C3\u03C4\u03B1\u03BC\u03B1\u03C4\u03AE\u03C3\u03B5\u03B9 \u03BD\u03B1 \u03B4\u03C1\u03B1\u03C3\u03C4\u03B7\u03C1\u03B9\u03BF\u03C0\u03BF\u03B9\u03B5\u03AF\u03C4\u03B1\u03B9.",
+          fix: "\u0391\u03BD\u03AC\u03C1\u03C4\u03B7\u03C3\u03B5 \u03C4\u03B1\u03BA\u03C4\u03B9\u03BA\u03AC (\u03AD\u03C3\u03C4\u03C9 \u03BC\u03AF\u03B1 \u03C6\u03BF\u03C1\u03AC \u03C4\u03BF\u03BD \u03BC\u03AE\u03BD\u03B1) \u03AE \u03B1\u03C6\u03B1\u03AF\u03C1\u03B5\u03C3\u03B5 \u03C4\u03B7\u03BD \u03B5\u03BD\u03CC\u03C4\u03B7\u03C4\u03B1 \u03B1\u03BD \u03B4\u03B5\u03BD \u03B8\u03B1 \u03C4\u03B7 \u03C3\u03C5\u03BD\u03C4\u03B7\u03C1\u03B5\u03AF\u03C2.",
+          run: function(S) {
+            var n = S.union.news;
+            if (!n) return null;
+            var mo = (S.now - n.latest) / 26298e5;
+            var s = mo <= 12 ? 1 : mo <= 24 ? 0.6 : 0.2;
+            return { s, ev: ["\u0397 \u03C0\u03B9\u03BF \u03C0\u03C1\u03CC\u03C3\u03C6\u03B1\u03C4\u03B7 \u03B1\u03BD\u03AC\u03C1\u03C4\u03B7\u03C3\u03B7 \u03C3\u03C4\u03B7 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1 " + n.path + " \u03B5\u03AF\u03BD\u03B1\u03B9 \u03C4\u03BF\u03C5 " + fmtMonth(n.latest) + " (" + ageText(S.now, n.latest) + ")."] };
           }
         },
         // --- Εύρεση ---
@@ -15835,18 +15945,153 @@ var require_analyzer = __commonJS({
             return /trustpilot|elfsight|google\.com\/maps|search\.google\.com\/local|tripadvisor|yelp/i.test(l.href);
           })) union.reviewWidget = true;
         });
+        union.covidHits = pages.filter(function(p) {
+          return p.covidHit;
+        }).map(function(p) {
+          return { path: pathOf(p.url), snippet: p.covidHit };
+        });
+        union.staleHits = pages.filter(function(p) {
+          return p.staleHit;
+        }).map(function(p) {
+          return { path: pathOf(p.url), snippet: p.staleHit };
+        });
+        if (union.covidHits.length || union.staleHits.length) union.covid = true;
+        var nowT = ctx.now || Date.now(), news = null;
+        pages.forEach(function(p) {
+          if (!p.isNews) return;
+          var all = p.textDates.concat(p.lastDate ? [p.lastDate] : []).filter(function(t) {
+            return t <= nowT + 864e5;
+          });
+          if (!all.length) return;
+          var mx = Math.max.apply(null, all);
+          if (!news || mx > news.latest) news = { path: pathOf(p.url), latest: mx, count: all.length };
+        });
+        union.news = news;
         union.phones = uniq(union.phones);
         union.emails = uniq(union.emails);
         var host = hostOf(home.url || ctx.url || "");
         return { home, pages, union, host, brand: deriveBrand(home, home.url || ctx.url), now: ctx.now || Date.now(), ctx };
+      }
+      var CONSEQ = {
+        title: "\u03A3\u03C4\u03B7 Google \u03BA\u03B1\u03B9 \u03C3\u03C4\u03B1 social \u03B7 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1 \u03B5\u03BC\u03C6\u03B1\u03BD\u03AF\u03B6\u03B5\u03C4\u03B1\u03B9 \u03BC\u03B5 \u03C4\u03AF\u03C4\u03BB\u03BF \u03C0\u03BF\u03C5 \u03B4\u03B5\u03BD \u03BB\u03AD\u03B5\u03B9 \u03C4\u03B9 \u03C0\u03C1\u03BF\u03C3\u03C6\u03AD\u03C1\u03B5\u03B9\u03C2, \u03BF\u03C0\u03CC\u03C4\u03B5 \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03C7\u03AC\u03BD\u03B5\u03B9\u03C2 \u03BA\u03BB\u03B9\u03BA.",
+        desc: "\u03A7\u03C9\u03C1\u03AF\u03C2 \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE, \u03B7 Google \u03B4\u03B9\u03B1\u03BB\u03AD\u03B3\u03B5\u03B9 \u03B7 \u03AF\u03B4\u03B9\u03B1 \u03AD\u03BD\u03B1 \u03C4\u03C5\u03C7\u03B1\u03AF\u03BF \u03B1\u03C0\u03CC\u03C3\u03C0\u03B1\u03C3\u03BC\u03B1 \u03B3\u03B9\u03B1 \u03BD\u03B1 \u03B4\u03B5\u03AF\u03BE\u03B5\u03B9 \u03BA\u03AC\u03C4\u03C9 \u03B1\u03C0\u03CC \u03C4\u03BF\u03BD \u03C4\u03AF\u03C4\u03BB\u03BF.",
+        h1: "\u039F \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B7\u03C2 \u03BA\u03B1\u03B9 \u03B7 Google \u03B4\u03B5\u03BD \u03B2\u03BB\u03AD\u03C0\u03BF\u03C5\u03BD \u03BA\u03B1\u03B8\u03B1\u03C1\u03AC \u03C0\u03BF\u03B9\u03BF \u03B5\u03AF\u03BD\u03B1\u03B9 \u03C4\u03BF \u03BA\u03CD\u03C1\u03B9\u03BF \u03B8\u03AD\u03BC\u03B1 \u03C4\u03B7\u03C2 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1\u03C2.",
+        headings: "\u03A4\u03BF \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF \u03C7\u03C9\u03C1\u03AF\u03C2 \u03C5\u03C0\u03CC\u03C4\u03B9\u03C4\u03BB\u03BF\u03C5\u03C2 \u03B4\u03B9\u03B1\u03B2\u03AC\u03B6\u03B5\u03C4\u03B1\u03B9 \u03B4\u03CD\u03C3\u03BA\u03BF\u03BB\u03B1 \u03BA\u03B1\u03B9 \u03B4\u03B5\u03AF\u03C7\u03BD\u03B5\u03B9 \u03BB\u03B9\u03B3\u03CC\u03C4\u03B5\u03C1\u03BF \u03BF\u03C1\u03B3\u03B1\u03BD\u03C9\u03BC\u03AD\u03BD\u03BF.",
+        content: "\u039C\u03B5 \u03C4\u03CC\u03C3\u03BF \u03BB\u03AF\u03B3\u03BF \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF, \u03BF \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B7\u03C2 \u03B4\u03B5\u03BD \u03B2\u03C1\u03AF\u03C3\u03BA\u03B5\u03B9 \u03B1\u03C0\u03B1\u03BD\u03C4\u03AE\u03C3\u03B5\u03B9\u03C2 \u03BA\u03B1\u03B9 \u03B7 Google \u03B4\u03B5\u03BD \u03AD\u03C7\u03B5\u03B9 \u03C4\u03B9 \u03BD\u03B1 \u03B4\u03B5\u03AF\u03BE\u03B5\u03B9.",
+        lang: "\u039F\u03B9 browsers \u03BA\u03B1\u03B9 \u03C4\u03B1 \u03B5\u03C1\u03B3\u03B1\u03BB\u03B5\u03AF\u03B1 \u03C0\u03C1\u03BF\u03C3\u03B2\u03B1\u03C3\u03B9\u03BC\u03CC\u03C4\u03B7\u03C4\u03B1\u03C2 \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03B4\u03B5\u03BD \u03BA\u03B1\u03C4\u03B1\u03BB\u03B1\u03B2\u03B1\u03AF\u03BD\u03BF\u03C5\u03BD \u03C3\u03B5 \u03C0\u03BF\u03B9\u03B1 \u03B3\u03BB\u03CE\u03C3\u03C3\u03B1 \u03B5\u03AF\u03BD\u03B1\u03B9 \u03B7 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1.",
+        contact: "\u0391\u03BD \u03B4\u03B5\u03BD \u03C6\u03B1\u03AF\u03BD\u03B5\u03C4\u03B1\u03B9 \u03B5\u03CD\u03BA\u03BF\u03BB\u03B1 \u03C0\u03CE\u03C2 \u03B5\u03C0\u03B9\u03BA\u03BF\u03B9\u03BD\u03C9\u03BD\u03B5\u03AF\u03C2, \u03BF\u03B9 \u03C5\u03C0\u03BF\u03C8\u03AE\u03C6\u03B9\u03BF\u03B9 \u03C0\u03B5\u03BB\u03AC\u03C4\u03B5\u03C2 \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03C6\u03B5\u03CD\u03B3\u03BF\u03C5\u03BD \u03C7\u03C9\u03C1\u03AF\u03C2 \u03BD\u03B1 \u03C1\u03C9\u03C4\u03AE\u03C3\u03BF\u03C5\u03BD.",
+        emaildomain: "\u0388\u03BD\u03B1 \u03B4\u03C9\u03C1\u03B5\u03AC\u03BD email (gmail, mail.com) \u03B4\u03AF\u03BD\u03B5\u03B9 \u03C4\u03B7\u03BD \u03B5\u03BD\u03C4\u03CD\u03C0\u03C9\u03C3\u03B7 \u03BC\u03B9\u03BA\u03C1\u03CC\u03C4\u03B5\u03C1\u03B7\u03C2 \u03B5\u03C4\u03B1\u03B9\u03C1\u03B5\u03AF\u03B1\u03C2 \u03BA\u03B1\u03B9 \u03C0\u03AD\u03C6\u03C4\u03B5\u03B9 \u03C0\u03B9\u03BF \u03B5\u03CD\u03BA\u03BF\u03BB\u03B1 \u03C3\u03B5 spam.",
+        privacy: "\u0391\u03BD \u03B7 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1 \u03C3\u03C5\u03BB\u03BB\u03AD\u03B3\u03B5\u03B9 \u03C3\u03C4\u03BF\u03B9\u03C7\u03B5\u03AF\u03B1 (\u03C6\u03CC\u03C1\u03BC\u03B1, cookies) \u03C7\u03C9\u03C1\u03AF\u03C2 \u03B5\u03BD\u03B7\u03BC\u03AD\u03C1\u03C9\u03C3\u03B7, \u03BC\u03C0\u03BF\u03C1\u03B5\u03AF \u03BD\u03B1 \u03BC\u03B7\u03BD \u03C0\u03BB\u03B7\u03C1\u03BF\u03AF \u03C4\u03B9\u03C2 \u03B1\u03C0\u03B1\u03B9\u03C4\u03AE\u03C3\u03B5\u03B9\u03C2 \u03C4\u03BF\u03C5 GDPR\xB7 \u03AD\u03BB\u03B5\u03B3\u03BE\u03AD \u03C4\u03BF \u03BC\u03B5 \u03BD\u03BF\u03BC\u03B9\u03BA\u03CC.",
+        proof: "\u039F\u03B9 \u03BD\u03AD\u03BF\u03B9 \u03C0\u03B5\u03BB\u03AC\u03C4\u03B5\u03C2 \u03B5\u03BC\u03C0\u03B9\u03C3\u03C4\u03B5\u03CD\u03BF\u03BD\u03C4\u03B1\u03B9 \u03C0\u03B5\u03C1\u03B9\u03C3\u03C3\u03CC\u03C4\u03B5\u03C1\u03BF \u03BA\u03C1\u03B9\u03C4\u03B9\u03BA\u03AD\u03C2 \u03BA\u03B1\u03B9 \u03C0\u03B1\u03C1\u03B1\u03B4\u03B5\u03AF\u03B3\u03BC\u03B1\u03C4\u03B1 \u03B4\u03BF\u03C5\u03BB\u03B5\u03B9\u03AC\u03C2 \u03B1\u03C0\u03CC \u03C4\u03BF\u03C5\u03C2 \u03B9\u03C3\u03C7\u03C5\u03C1\u03B9\u03C3\u03BC\u03BF\u03CD\u03C2 \u03C4\u03B7\u03C2 \u03AF\u03B4\u03B9\u03B1\u03C2 \u03C4\u03B7\u03C2 \u03B5\u03C4\u03B1\u03B9\u03C1\u03B5\u03AF\u03B1\u03C2.",
+        social: "\u0388\u03BD\u03B1\u03C2 \u03C3\u03C0\u03B1\u03C3\u03BC\u03AD\u03BD\u03BF\u03C2 \u03C3\u03CD\u03BD\u03B4\u03B5\u03C3\u03BC\u03BF\u03C2 \u03C3\u03C4\u03B1 social \u03B4\u03B5\u03AF\u03C7\u03BD\u03B5\u03B9 \u03CC\u03C4\u03B9 \u03BA\u03AC\u03C4\u03B9 \u03B4\u03B5\u03BD \u03C3\u03C5\u03BD\u03C4\u03B7\u03C1\u03B5\u03AF\u03C4\u03B1\u03B9.",
+        legal: "\u03A7\u03C9\u03C1\u03AF\u03C2 \u0391\u03A6\u039C \u03AE \u0393\u0395\u039C\u0397, \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03B4\u03C5\u03C3\u03BA\u03BF\u03BB\u03B5\u03CD\u03B5\u03C4\u03B1\u03B9 \u03BA\u03AC\u03C0\u03BF\u03B9\u03BF\u03C2 \u03BD\u03B1 \u03B5\u03C0\u03B9\u03B2\u03B5\u03B2\u03B1\u03B9\u03CE\u03C3\u03B5\u03B9 \u03CC\u03C4\u03B9 \u03B7 \u03B5\u03C0\u03B9\u03C7\u03B5\u03AF\u03C1\u03B7\u03C3\u03B7 \u03B5\u03AF\u03BD\u03B1\u03B9 \u03BA\u03B1\u03C4\u03B1\u03C7\u03C9\u03C1\u03B7\u03BC\u03AD\u03BD\u03B7.",
+        fresh: "\u0388\u03BD\u03B1 \u03C0\u03B1\u03BB\u03B9\u03CC copyright \u03AE \u03BC\u03B9\u03B1 \u03B5\u03B9\u03B4\u03BF\u03C0\u03BF\u03AF\u03B7\u03C3\u03B7 \u03C4\u03BF\u03C5 \u03C0\u03B1\u03C1\u03B5\u03BB\u03B8\u03CC\u03BD\u03C4\u03BF\u03C2 \u03BC\u03C0\u03BF\u03C1\u03B5\u03AF \u03BD\u03B1 \u03BA\u03AC\u03BD\u03B5\u03B9 \u03C4\u03BF\u03BD \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B7 \u03BD\u03B1 \u03BD\u03BF\u03BC\u03AF\u03C3\u03B5\u03B9 \u03CC\u03C4\u03B9 \u03B7 \u03B5\u03C0\u03B9\u03C7\u03B5\u03AF\u03C1\u03B7\u03C3\u03B7 \u03B4\u03B5\u03BD \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03B5\u03AF \u03C0\u03B9\u03B1.",
+        news: "\u039D\u03AD\u03B1 \u03C0\u03BF\u03C5 \u03C3\u03C4\u03B1\u03BC\u03AC\u03C4\u03B7\u03C3\u03B1\u03BD \u03C0\u03C1\u03B9\u03BD \u03C7\u03C1\u03CC\u03BD\u03B9\u03B1 \u03B4\u03AF\u03BD\u03BF\u03C5\u03BD \u03C4\u03B7\u03BD \u03B5\u03BD\u03C4\u03CD\u03C0\u03C9\u03C3\u03B7 \u03B5\u03B3\u03BA\u03B1\u03C4\u03AC\u03BB\u03B5\u03B9\u03C8\u03B7\u03C2.",
+        canonical: "\u0397 Google \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03BC\u03B5\u03C4\u03C1\u03AC \u03C4\u03B7\u03BD \u03AF\u03B4\u03B9\u03B1 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1 \u03BC\u03B5 \u03C0\u03B5\u03C1\u03B9\u03C3\u03C3\u03CC\u03C4\u03B5\u03C1\u03B5\u03C2 \u03B1\u03C0\u03CC \u03BC\u03AF\u03B1 \u03B4\u03B9\u03B5\u03C5\u03B8\u03CD\u03BD\u03C3\u03B5\u03B9\u03C2.",
+        og: "\u038C\u03C4\u03B1\u03BD \u03BA\u03AC\u03C0\u03BF\u03B9\u03BF\u03C2 \u03BC\u03BF\u03B9\u03C1\u03AC\u03B6\u03B5\u03C4\u03B1\u03B9 \u03C4\u03BF\u03BD \u03C3\u03CD\u03BD\u03B4\u03B5\u03C3\u03BC\u03BF \u03C3\u03B5 Facebook \u03AE LinkedIn, \u03B7 \u03C0\u03C1\u03BF\u03B5\u03C0\u03B9\u03C3\u03BA\u03CC\u03C0\u03B7\u03C3\u03B7 \u03B2\u03B3\u03B1\u03AF\u03BD\u03B5\u03B9 \u03C7\u03C9\u03C1\u03AF\u03C2 \u03C3\u03C9\u03C3\u03C4\u03AE \u03B5\u03B9\u03BA\u03CC\u03BD\u03B1 \u03AE \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF.",
+        schema: "\u0397 Google \u03BA\u03B1\u03B9 \u03C4\u03B1 \u03B5\u03C1\u03B3\u03B1\u03BB\u03B5\u03AF\u03B1 AI \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03B4\u03B5\u03BD \u03BA\u03B1\u03C4\u03B1\u03BB\u03B1\u03B2\u03B1\u03AF\u03BD\u03BF\u03C5\u03BD \u03BE\u03B5\u03BA\u03AC\u03B8\u03B1\u03C1\u03B1 \u03C0\u03BF\u03B9\u03B1 \u03B5\u03C0\u03B9\u03C7\u03B5\u03AF\u03C1\u03B7\u03C3\u03B7 \u03B5\u03AF\u03BD\u03B1\u03B9, \u03C0\u03BF\u03CD \u03B2\u03C1\u03AF\u03C3\u03BA\u03B5\u03C4\u03B1\u03B9 \u03BA\u03B1\u03B9 \u03C0\u03CE\u03C2 \u03B5\u03C0\u03B9\u03BA\u03BF\u03B9\u03BD\u03C9\u03BD\u03B5\u03AF\u03C2.",
+        alt: "\u039F\u03B9 \u03B5\u03B9\u03BA\u03CC\u03BD\u03B5\u03C2 \u03B4\u03B5\u03BD \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03BF\u03BD\u03C4\u03B1\u03B9 \u03B3\u03B9\u03B1 \u03C4\u03BF\u03C5\u03C2 \u03C4\u03C5\u03C6\u03BB\u03BF\u03CD\u03C2 \u03C7\u03C1\u03AE\u03C3\u03C4\u03B5\u03C2 \u03BA\u03B1\u03B9 \u03B3\u03B9\u03B1 \u03C4\u03B7 Google.",
+        noindex: "\u0397 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1 \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03B4\u03B5\u03BD \u03B5\u03BC\u03C6\u03B1\u03BD\u03AF\u03B6\u03B5\u03C4\u03B1\u03B9 \u03BA\u03B1\u03B8\u03CC\u03BB\u03BF\u03C5 \u03C3\u03C4\u03B7 Google.",
+        sitemap: "\u0397 Google \u03BC\u03C0\u03BF\u03C1\u03B5\u03AF \u03BD\u03B1 \u03B4\u03C5\u03C3\u03BA\u03BF\u03BB\u03B5\u03CD\u03B5\u03C4\u03B1\u03B9 \u03BD\u03B1 \u03B2\u03C1\u03B5\u03B9 \u03CC\u03BB\u03B5\u03C2 \u03C4\u03B9\u03C2 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B5\u03C2.",
+        linknames: "\u039F\u03B9 \u03B1\u03BD\u03B1\u03B3\u03BD\u03CE\u03C3\u03C4\u03B5\u03C2 \u03BF\u03B8\u03CC\u03BD\u03B7\u03C2 \u03B4\u03B5\u03BD \u03BA\u03B1\u03C4\u03B1\u03BB\u03B1\u03B2\u03B1\u03AF\u03BD\u03BF\u03C5\u03BD \u03C0\u03BF\u03CD \u03C0\u03B7\u03B3\u03B1\u03AF\u03BD\u03BF\u03C5\u03BD \u03B1\u03C5\u03C4\u03BF\u03AF \u03BF\u03B9 \u03C3\u03CD\u03BD\u03B4\u03B5\u03C3\u03BC\u03BF\u03B9.",
+        multilang: "\u039F\u03B9 \u03BC\u03B5\u03C4\u03B1\u03C6\u03C1\u03AC\u03C3\u03B5\u03B9\u03C2 \u03C0\u03BF\u03C5 \u03C6\u03BF\u03C1\u03C4\u03CE\u03BD\u03BF\u03C5\u03BD \u03BC\u03B5 JavaScript \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03B4\u03B5\u03BD \u03B5\u03BC\u03C6\u03B1\u03BD\u03AF\u03B6\u03BF\u03BD\u03C4\u03B1\u03B9 \u03C3\u03C4\u03B7 Google.",
+        pages: "\u03A3\u03B5\u03BB\u03AF\u03B4\u03B5\u03C2 \u03BC\u03B5 \u03B3\u03B5\u03BD\u03B9\u03BA\u03BF\u03CD\u03C2 \u03C4\u03AF\u03C4\u03BB\u03BF\u03C5\u03C2 \u03B4\u03B5\u03BD \u03B2\u03BF\u03B7\u03B8\u03BF\u03CD\u03BD \u03BD\u03B1 \u03B2\u03C1\u03B5\u03B8\u03BF\u03CD\u03BD \u03B3\u03B9\u03B1 \u03C3\u03C5\u03B3\u03BA\u03B5\u03BA\u03C1\u03B9\u03BC\u03AD\u03BD\u03B5\u03C2 \u03B1\u03BD\u03B1\u03B6\u03B7\u03C4\u03AE\u03C3\u03B5\u03B9\u03C2.",
+        cta: "\u03A7\u03C9\u03C1\u03AF\u03C2 \u03BE\u03B5\u03BA\u03AC\u03B8\u03B1\u03C1\u03BF \u03BA\u03BF\u03C5\u03BC\u03C0\u03AF, \u03BF \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B7\u03C2 \u03B4\u03B5\u03BD \u03BE\u03AD\u03C1\u03B5\u03B9 \u03C0\u03BF\u03B9\u03BF \u03B5\u03AF\u03BD\u03B1\u03B9 \u03C4\u03BF \u03B5\u03C0\u03CC\u03BC\u03B5\u03BD\u03BF \u03B2\u03AE\u03BC\u03B1.",
+        click: "\u03A3\u03C4\u03BF \u03BA\u03B9\u03BD\u03B7\u03C4\u03CC, \u03BF \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B7\u03C2 \u03C0\u03C1\u03AD\u03C0\u03B5\u03B9 \u03BD\u03B1 \u03B1\u03BD\u03C4\u03B9\u03B3\u03C1\u03AC\u03C8\u03B5\u03B9 \u03C7\u03B5\u03B9\u03C1\u03BF\u03BA\u03AF\u03BD\u03B7\u03C4\u03B1 \u03C4\u03BF \u03C4\u03B7\u03BB\u03AD\u03C6\u03C9\u03BD\u03BF \u03AE \u03C4\u03BF email.",
+        form: "\u039C\u03B9\u03B1 \u03C6\u03CC\u03C1\u03BC\u03B1 \u03C7\u03C9\u03C1\u03AF\u03C2 \u03B5\u03BD\u03B7\u03BC\u03AD\u03C1\u03C9\u03C3\u03B7 \u03B3\u03B9\u03B1 \u03C4\u03B1 \u03B4\u03B5\u03B4\u03BF\u03BC\u03AD\u03BD\u03B1 \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03B4\u03B5\u03BD \u03C0\u03BB\u03B7\u03C1\u03BF\u03AF \u03C4\u03BF GDPR.",
+        pricing: "\u038C\u03C4\u03B1\u03BD \u03B4\u03B5\u03BD \u03C6\u03B1\u03AF\u03BD\u03B5\u03C4\u03B1\u03B9 \u03BA\u03B1\u03BC\u03AF\u03B1 \u03C4\u03B9\u03BC\u03AE, \u03C0\u03BF\u03BB\u03BB\u03BF\u03AF \u03C5\u03C0\u03BF\u03C8\u03AE\u03C6\u03B9\u03BF\u03B9 \u03C0\u03B5\u03BB\u03AC\u03C4\u03B5\u03C2 \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03B4\u03B5\u03BD \u03C1\u03C9\u03C4\u03BF\u03CD\u03BD \u03BA\u03B1\u03B8\u03CC\u03BB\u03BF\u03C5.",
+        viewport: "\u03A3\u03C4\u03BF \u03BA\u03B9\u03BD\u03B7\u03C4\u03CC \u03B7 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1 \u03B5\u03BC\u03C6\u03B1\u03BD\u03AF\u03B6\u03B5\u03C4\u03B1\u03B9 \u03BC\u03B9\u03BA\u03C1\u03BF\u03C3\u03BA\u03BF\u03C0\u03B9\u03BA\u03AE.",
+        https: "\u039F\u03B9 browsers \u03B4\u03B5\u03AF\u03C7\u03BD\u03BF\u03C5\u03BD \u03C0\u03C1\u03BF\u03B5\u03B9\u03B4\u03BF\u03C0\u03BF\u03AF\u03B7\u03C3\u03B7 \xAB\u03BC\u03B7 \u03B1\u03C3\u03C6\u03B1\u03BB\u03AD\u03C2\xBB \u03C3\u03C4\u03BF\u03C5\u03C2 \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B5\u03C2.",
+        placeholders: "\u03A4\u03BF \u03C3\u03C0\u03B1\u03C3\u03BC\u03AD\u03BD\u03BF \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF \u03B4\u03B5\u03AF\u03C7\u03BD\u03B5\u03B9 \u03CC\u03C4\u03B9 \u03BA\u03AC\u03C4\u03B9 \u03B4\u03B5\u03BD \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03B5\u03AF \u03BA\u03B1\u03B9 \u03C7\u03B1\u03BB\u03AC \u03C4\u03B7\u03BD \u03B5\u03BD\u03C4\u03CD\u03C0\u03C9\u03C3\u03B7.",
+        perf: "\u039F\u03B9 \u03B2\u03B1\u03C1\u03B9\u03AD\u03C2 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B5\u03C2 \u03B5\u03BD\u03B4\u03B5\u03C7\u03BF\u03BC\u03AD\u03BD\u03C9\u03C2 \u03C6\u03BF\u03C1\u03C4\u03CE\u03BD\u03BF\u03C5\u03BD \u03B1\u03C1\u03B3\u03AC, \u03B5\u03B9\u03B4\u03B9\u03BA\u03AC \u03C3\u03B5 \u03BA\u03B9\u03BD\u03B7\u03C4\u03CC.",
+        response: "\u0388\u03BD\u03B1\u03C2 \u03B1\u03C1\u03B3\u03CC\u03C2 server \u03C7\u03AC\u03BD\u03B5\u03B9 \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B5\u03C2.",
+        cliches: "\u039F\u03B9 \u03B3\u03B5\u03BD\u03B9\u03BA\u03AD\u03C2 \u03C6\u03C1\u03AC\u03C3\u03B5\u03B9\u03C2 \u03C5\u03C0\u03AC\u03C1\u03C7\u03BF\u03C5\u03BD \u03C3\u03B5 \u03C7\u03B9\u03BB\u03B9\u03AC\u03B4\u03B5\u03C2 sites \u03BA\u03B1\u03B9 \u03B4\u03B5\u03BD \u03BE\u03B5\u03C7\u03C9\u03C1\u03AF\u03B6\u03BF\u03C5\u03BD \u03C4\u03B7\u03BD \u03B5\u03C4\u03B1\u03B9\u03C1\u03B5\u03AF\u03B1.",
+        voice: "\u039F \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B7\u03C2 \u03C8\u03AC\u03C7\u03BD\u03B5\u03B9 \u03C4\u03B9 \u03BA\u03B5\u03C1\u03B4\u03AF\u03B6\u03B5\u03B9 \u03BF \u03AF\u03B4\u03B9\u03BF\u03C2, \u03CC\u03C7\u03B9 \u03C4\u03B9 \u03C0\u03B9\u03C3\u03C4\u03B5\u03CD\u03B5\u03B9 \u03B7 \u03B5\u03C4\u03B1\u03B9\u03C1\u03B5\u03AF\u03B1 \u03B3\u03B9\u03B1 \u03C4\u03BF\u03BD \u03B5\u03B1\u03C5\u03C4\u03CC \u03C4\u03B7\u03C2.",
+        sentences: "\u039F\u03B9 \u03C0\u03BF\u03BB\u03CD \u03BC\u03B5\u03B3\u03AC\u03BB\u03B5\u03C2 \u03C0\u03C1\u03BF\u03C4\u03AC\u03C3\u03B5\u03B9\u03C2 \u03BA\u03BF\u03C5\u03C1\u03AC\u03B6\u03BF\u03C5\u03BD \u03BA\u03B1\u03B9 \u03BF \u03B5\u03C0\u03B9\u03C3\u03BA\u03AD\u03C0\u03C4\u03B7\u03C2 \u03C3\u03C4\u03B1\u03BC\u03B1\u03C4\u03AC \u03BD\u03B1 \u03B4\u03B9\u03B1\u03B2\u03AC\u03B6\u03B5\u03B9.",
+        specifics: "\u03A7\u03C9\u03C1\u03AF\u03C2 \u03B1\u03C1\u03B9\u03B8\u03BC\u03BF\u03CD\u03C2 \u03BA\u03B1\u03B9 \u03C0\u03B1\u03C1\u03B1\u03B4\u03B5\u03AF\u03B3\u03BC\u03B1\u03C4\u03B1, \u03BF\u03B9 \u03B9\u03C3\u03C7\u03C5\u03C1\u03B9\u03C3\u03BC\u03BF\u03AF \u03B4\u03B5\u03BD \u03B5\u03AF\u03BD\u03B1\u03B9 \u03C0\u03B9\u03C3\u03C4\u03B5\u03C5\u03C4\u03BF\u03AF.",
+        repeat: "\u039F\u03B9 \u03B4\u03B9\u03C0\u03BB\u03AD\u03C2 \u03BB\u03AD\u03BE\u03B5\u03B9\u03C2 \u03BA\u03B1\u03B9 \u03BF\u03B9 \u03B5\u03C0\u03B1\u03BD\u03B1\u03BB\u03AE\u03C8\u03B5\u03B9\u03C2 \u03B4\u03B5\u03AF\u03C7\u03BD\u03BF\u03C5\u03BD \u03B1\u03C5\u03C4\u03CC\u03BC\u03B1\u03C4\u03B7 \u03BC\u03B5\u03C4\u03AC\u03C6\u03C1\u03B1\u03C3\u03B7 \u03AE \u03C0\u03C1\u03BF\u03C7\u03B5\u03B9\u03C1\u03CC\u03C4\u03B7\u03C4\u03B1."
+      };
+      var TRIVIAL_STORY = { noindex: 1, https: 1, viewport: 1, perf: 1, response: 1, headings: 1, lang: 1, canonical: 1, repeat: 1, placeholders: 1, sentences: 1 };
+      var SERVICE_PATH = /(service|υπηρεσ|προϊόν|προιον|product|menu|course|μαθημ|pricing|τιμ|nylc|certif|εξετασ|packages?|πακετ)/i;
+      function pageReview(d, home, now) {
+        var notes = [], path = pathOf(d.url), isContact = /contact|επικοινων/i.test(path + " " + d.title);
+        var title = clean(d.title);
+        if (d.words < 120 && !isContact && !d.isNews) notes.push("\u039C\u03CC\u03BD\u03BF " + d.words + " \u03BB\u03AD\u03BE\u03B5\u03B9\u03C2" + (d.words < 60 ? ": \u03C0\u03BF\u03BB\u03CD \u03BB\u03AF\u03B3\u03B5\u03C2 \u03B3\u03B9\u03B1 \u03BD\u03B1 \u03B5\u03BE\u03B7\u03B3\u03AE\u03C3\u03BF\u03C5\u03BD \u03C4\u03B7\u03BD \u03C5\u03C0\u03B7\u03C1\u03B5\u03C3\u03AF\u03B1." : ": \u03BB\u03AF\u03B3\u03B5\u03C2 \u03B3\u03B9\u03B1 \u03BD\u03B1 \u03B1\u03C0\u03B1\u03BD\u03C4\u03AE\u03C3\u03BF\u03C5\u03BD \u03C3\u03C4\u03B9\u03C2 \u03B5\u03C1\u03C9\u03C4\u03AE\u03C3\u03B5\u03B9\u03C2 \u03B5\u03BD\u03CC\u03C2 \u03C5\u03C0\u03BF\u03C8\u03AE\u03C6\u03B9\u03BF\u03C5 \u03C0\u03B5\u03BB\u03AC\u03C4\u03B7."));
+        if (SERVICE_PATH.test(path + " " + title) && !home) {
+          var miss = [];
+          if (!d.hasPrice) miss.push("\u03C4\u03B9\u03BC\u03AD\u03C2 \u03AE \xAB\u03B1\u03C0\u03CC \u03A7\u20AC\xBB");
+          if (!d.ctaAny && !d.forms.length) miss.push("\u03BA\u03BF\u03C5\u03BC\u03C0\u03AF \u03AE \u03C6\u03CC\u03C1\u03BC\u03B1 \u03B3\u03B9\u03B1 \u03C4\u03BF \u03B5\u03C0\u03CC\u03BC\u03B5\u03BD\u03BF \u03B2\u03AE\u03BC\u03B1");
+          if (miss.length) notes.push("\u0394\u03B5\u03BD \u03C6\u03B1\u03AF\u03BD\u03BF\u03BD\u03C4\u03B1\u03B9: " + miss.join(" \u03BA\u03B1\u03B9 ") + ". \u0388\u03BD\u03B1\u03C2 \u03C5\u03C0\u03BF\u03C8\u03AE\u03C6\u03B9\u03BF\u03C2 \u03C0\u03B5\u03BB\u03AC\u03C4\u03B7\u03C2 \u03C3\u03C5\u03BD\u03AE\u03B8\u03C9\u03C2 \u03C8\u03AC\u03C7\u03BD\u03B5\u03B9 \u03C0\u03C1\u03CE\u03C4\u03B1 \u03C0\u03CC\u03C3\u03BF \u03BA\u03BF\u03C3\u03C4\u03AF\u03B6\u03B5\u03B9 \u03BA\u03B1\u03B9 \u03C0\u03CE\u03C2 \u03B8\u03B1 \u03C0\u03C1\u03BF\u03C7\u03C9\u03C1\u03AE\u03C3\u03B5\u03B9.");
+        }
+        if (!title || len(title) < 15 || title.split(/\s+/).length < 2) notes.push("\u039F \u03C4\u03AF\u03C4\u03BB\u03BF\u03C2 (\xAB" + short(title || "\u2014", 30) + "\xBB) \u03B4\u03B5\u03BD \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03AC\u03C6\u03B5\u03B9 \u03C4\u03B7 \u03C3\u03B5\u03BB\u03AF\u03B4\u03B1.");
+        if (!d.desc) notes.push("\u0394\u03B5\u03BD \u03AD\u03C7\u03B5\u03B9 \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE \u03B3\u03B9\u03B1 \u03C4\u03B7 Google.");
+        if (!d.h1.length && !isContact) notes.push("\u0394\u03B5\u03BD \u03AD\u03C7\u03B5\u03B9 \u03BA\u03CD\u03C1\u03B9\u03BF \u03C4\u03AF\u03C4\u03BB\u03BF (H1).");
+        if (d.covidHit) notes.push("\u03A0\u03B5\u03C1\u03B9\u03AD\u03C7\u03B5\u03B9 \u03B1\u03BD\u03B1\u03C6\u03BF\u03C1\u03AC \u03C3\u03C4\u03B7\u03BD \u03C0\u03B1\u03BD\u03B4\u03B7\u03BC\u03AF\u03B1: \xAB" + d.covidHit + "\xBB");
+        else if (d.staleHit) notes.push("\u03A0\u03B5\u03C1\u03B9\u03AD\u03C7\u03B5\u03B9 \u03B5\u03B9\u03B4\u03BF\u03C0\u03BF\u03AF\u03B7\u03C3\u03B7 \u03C7\u03C9\u03C1\u03AF\u03C2 \u03B7\u03BC\u03B5\u03C1\u03BF\u03BC\u03B7\u03BD\u03AF\u03B1 \u03BB\u03AE\u03BE\u03B7\u03C2: \xAB" + d.staleHit + "\xBB");
+        if (d.isNews) {
+          var all = d.textDates.concat(d.lastDate ? [d.lastDate] : []);
+          if (all.length) {
+            var mx = Math.max.apply(null, all);
+            notes.push("\u0397 \u03C4\u03B5\u03BB\u03B5\u03C5\u03C4\u03B1\u03AF\u03B1 \u03B1\u03BD\u03AC\u03C1\u03C4\u03B7\u03C3\u03B7 \u03B5\u03AF\u03BD\u03B1\u03B9 \u03C4\u03BF\u03C5 " + fmtMonth(mx) + " (" + ageText(now, mx) + ").");
+          }
+        }
+        return notes;
+      }
+      function trimDot(x) {
+        return clean(x).replace(/[.\s]+$/, "");
+      }
+      function buildStory(name, score, band, positives, negatives, quick, potential, pageNotes) {
+        var paras = [];
+        var strong = positives.filter(function(i) {
+          return !TRIVIAL_STORY[i.id];
+        }).slice(0, 2);
+        var p1 = "\u03A4\u03BF " + name + " \u03B2\u03B1\u03B8\u03BC\u03BF\u03BB\u03BF\u03B3\u03B5\u03AF\u03C4\u03B1\u03B9 \u03BC\u03B5 " + score + "/100 (" + band.label.toLowerCase() + "). ";
+        if (strong.length) p1 += "\u0391\u03C5\u03C4\u03CC \u03C0\u03BF\u03C5 \u03BB\u03B5\u03B9\u03C4\u03BF\u03C5\u03C1\u03B3\u03B5\u03AF \u03BA\u03B1\u03BB\u03AC: " + strong.map(function(i) {
+          return i.name.toLowerCase().replace(/google/g, "Google") + (i.evidence[0] ? " (" + trimDot(i.evidence[0]) + ")" : "");
+        }).join(" \u03BA\u03B1\u03B9 ") + ".";
+        else p1 += "\u03A3\u03C4\u03BF\u03C5\u03C2 \u03B5\u03BB\u03AD\u03B3\u03C7\u03BF\u03C5\u03C2 \u03C0\u03BF\u03C5 \u03AD\u03B3\u03B9\u03BD\u03B1\u03BD \u03B4\u03B5\u03BD \u03BE\u03B5\u03C7\u03C9\u03C1\u03AF\u03B6\u03B5\u03B9 \u03B1\u03BA\u03CC\u03BC\u03B1 \u03BA\u03AC\u03C0\u03BF\u03B9\u03BF \u03B9\u03C3\u03C7\u03C5\u03C1\u03CC \u03C3\u03B7\u03BC\u03B5\u03AF\u03BF.";
+        paras.push(p1);
+        if (negatives.length) {
+          var n0 = negatives[0], p2 = "\u03A4\u03BF \u03BC\u03B5\u03B3\u03B1\u03BB\u03CD\u03C4\u03B5\u03C1\u03BF \u03BA\u03B5\u03BD\u03CC \u03B5\u03AF\u03BD\u03B1\u03B9: " + n0.name.toLowerCase().replace(/google/g, "Google") + ". " + trimDot(n0.evidence[0] || "") + ". " + (CONSEQ[n0.id] || "");
+          var n1 = negatives[1];
+          if (n1) p2 += " \u0391\u03BA\u03BF\u03BB\u03BF\u03C5\u03B8\u03B5\u03AF: " + n1.name.toLowerCase().replace(/google/g, "Google") + " (" + trimDot(n1.evidence[0] || "") + ").";
+          paras.push(p2);
+          var hot = negatives.filter(function(i) {
+            return (i.id === "fresh" || i.id === "news") && i.s < 0.5 && i !== n0 && i !== n1;
+          })[0];
+          if (hot) paras.push("\u039E\u03B5\u03C7\u03C9\u03C1\u03AF\u03B6\u03B5\u03B9 \u03BA\u03B1\u03B9 \u03C4\u03BF \u03B5\u03BE\u03AE\u03C2: " + hot.evidence.map(trimDot).join(". ") + ". " + (CONSEQ[hot.id] || ""));
+          var q = quick.slice(0, 3).map(function(i, k) {
+            return k + 1 + ") " + trimDot(i.fix);
+          }).join("; ");
+          paras.push("\u039F\u03B9 \u03C0\u03B9\u03BF \u03B3\u03C1\u03AE\u03B3\u03BF\u03C1\u03B5\u03C2 \u03BA\u03B9\u03BD\u03AE\u03C3\u03B5\u03B9\u03C2: " + q + ". \u0391\u03BD \u03B3\u03AF\u03BD\u03BF\u03C5\u03BD \u03BA\u03B1\u03B9 \u03BF\u03B9 \u03C0\u03AD\u03BD\u03C4\u03B5 \u03C0\u03C1\u03CE\u03C4\u03B5\u03C2 \u03B4\u03B9\u03BF\u03C1\u03B8\u03CE\u03C3\u03B5\u03B9\u03C2, \u03BF \u03B2\u03B1\u03B8\u03BC\u03CC\u03C2 \u03BC\u03C0\u03BF\u03C1\u03B5\u03AF \u03BD\u03B1 \u03B1\u03BD\u03AD\u03B2\u03B5\u03B9 \u03C0\u03B5\u03C1\u03AF\u03C0\u03BF\u03C5 \u03C3\u03C4\u03BF " + potential + ".");
+        }
+        if (pageNotes && pageNotes.length > 1) {
+          var thin = pageNotes.filter(function(x) {
+            return x.notes.some(function(n) {
+              return /^Μόνο \d+ λέξεις/.test(n);
+            });
+          }).length;
+          var nodesc = pageNotes.filter(function(x) {
+            return x.notes.some(function(n) {
+              return /περιγραφή για τη Google/.test(n);
+            });
+          }).length;
+          var bits = [];
+          if (thin) bits.push(thin + " \u03AD\u03C7\u03BF\u03C5\u03BD \u03C0\u03BF\u03BB\u03CD \u03BB\u03AF\u03B3\u03BF \u03BA\u03B5\u03AF\u03BC\u03B5\u03BD\u03BF");
+          if (nodesc) bits.push(nodesc + " \u03B4\u03B5\u03BD \u03AD\u03C7\u03BF\u03C5\u03BD \u03C0\u03B5\u03C1\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE \u03B3\u03B9\u03B1 \u03C4\u03B7 Google");
+          if (bits.length) paras.push("\u0391\u03C0\u03CC \u03C4\u03B9\u03C2 " + pageNotes.length + " \u03C3\u03B5\u03BB\u03AF\u03B4\u03B5\u03C2 \u03C0\u03BF\u03C5 \u03B5\u03BB\u03AD\u03B3\u03C7\u03B8\u03B7\u03BA\u03B1\u03BD, " + bits.join(" \u03BA\u03B1\u03B9 ") + ".");
+        }
+        return paras.map(function(x) {
+          return x.replace(/\(h1\)/gi, "(H1)");
+        });
       }
       function statusOf(s) {
         return s >= PASS ? "pass" : s >= WARN ? "warn" : "fail";
       }
       function analyzeSite(pageDocs, ctx) {
         ctx = ctx || {};
-        var pages = pageDocs.map(function(p) {
-          return extract(p.doc, { url: p.url, status: p.status, ms: p.ms, size: p.size, headers: p.headers, html: p.html });
+        var pages = pageDocs.map(function(p, i) {
+          return extract(p.doc, { url: p.url, status: p.status, ms: p.ms, size: p.size, headers: p.headers, html: p.html, now: ctx.now || Date.now(), home: i === 0 });
         });
         var S = buildSite(pages, ctx);
         var home = pages[0];
@@ -15868,6 +16113,7 @@ var require_analyzer = __commonJS({
         items.forEach(function(i) {
           i.gain = Math.round(i.w * (1 - i.s) / totalW * 100 * 10) / 10;
           i.impact = i.w >= 4 ? "high" : i.w >= 3 ? "mid" : "low";
+          i.conseq = i.status === "pass" ? "" : CONSEQ[i.id] || "";
         });
         var cats = CATS.map(function(c) {
           var its = items.filter(function(i) {
@@ -15908,13 +16154,17 @@ var require_analyzer = __commonJS({
           quickWins: quick,
           potential,
           skipped,
-          pages: pages.map(function(p) {
-            return { url: p.url, title: p.title, titleLen: len(p.title), descLen: len(p.desc || ""), words: p.words, h1: p.h1.length, status: p.status };
+          pages: pages.map(function(p, i) {
+            return { url: p.url, title: p.title, titleLen: len(p.title), descLen: len(p.desc || ""), words: p.words, h1: p.h1.length, status: p.status, notes: pageReview(p, i === 0, S.now) };
           }),
           fixes: buildFixes(S, items),
           summary: makeSummary(score, positives, negatives, potential),
+          story: null,
           gbp: null
         };
+        report.story = buildStory(S.brand, score, band, positives, negatives, quick, potential, report.pages.map(function(x) {
+          return { url: x.url, notes: x.notes };
+        }));
         return report;
       }
       function makeSummary(score, pos, neg, potential) {
@@ -16387,7 +16637,7 @@ var require_analyzer = __commonJS({
         var doc = new DOMParser().parseFromString(html, "text/html");
         return analyzeSite([{ doc, url: opts.url || "", html, size: html.length }], { mode: "paste", now: opts.now });
       }
-      return { narrate, narrateAll, isSoftware, osmFilters, buildQuery, filterCandidates, guessCategory, guessCity, pickCompetitors, compareMany, psiUrl, parsePagespeed, CATS, CHECKS, extract, analyzeSite, analyzeHtml, analyzeGbp, compareReports, PASS, WARN };
+      return { __test: { datesIn }, narrate, narrateAll, isSoftware, osmFilters, buildQuery, filterCandidates, guessCategory, guessCity, pickCompetitors, compareMany, psiUrl, parsePagespeed, CATS, CHECKS, extract, analyzeSite, analyzeHtml, analyzeGbp, compareReports, PASS, WARN };
     });
   }
 });

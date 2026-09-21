@@ -191,6 +191,12 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
 .narr .fx{ display:block; color:var(--teal); font-size:.92rem; margin-top:.1rem; }
 .more-diff{ margin-top:1.2rem; } .more-diff > summary{ cursor:pointer; font-weight:600; color:var(--teal); }
 
+.story{ margin-top:.8rem; padding:1rem 1.2rem; background:var(--card); border:1px dashed var(--line2); border-radius:12px; font-size:1.05rem; line-height:1.65; }
+.story p{ margin:0 0 .8rem; } .story p:last-child{ margin-bottom:0; } .story:focus{ outline:3px solid var(--teal); outline-offset:2px; }
+.advisor{ display:grid; gap:.5rem; margin-top:1rem; padding:1rem; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+.advisor textarea{ min-height:5rem; font:400 .95rem/1.5 var(--body); }
+.print-only{ display:none; } ul.pn{ margin:0; padding-left:1rem; } ul.pn li{ margin-bottom:.25rem; }
+
 @media (max-width:820px){
   .benchctl,.b3{ grid-template-columns:1fr; } .b3cat,.b3head{ grid-template-columns:1fr; }
   .sides,.split,.cmp-head{ grid-template-columns:1fr; }
@@ -200,7 +206,9 @@ dialog textarea{ height:12rem; margin-top:.7rem; }
 }
 @media print{
   body{ background:#fff; color:#000; }
-  .top,.tabs,.actions,.foot,.toast,#view-input,.icon-btn,.btn{ display:none !important; }
+  .top,.tabs,.actions,.foot,.toast,#view-input,.icon-btn,.btn,.screen-only{ display:none !important; }
+  .print-only{ display:block !important; margin-top:.8rem; }
+  .story{ border:0; padding:0; }
   #view-report{ display:block !important; }
   .item{ break-inside:avoid; } .item[open] .body,.item .body{ display:grid; }
   .item > summary{ break-after:avoid; }
@@ -573,6 +581,25 @@ document.addEventListener('click', function (e) {
   if (e.target.closest('#b-next')) { b.poolOff = (b.poolOff + 4) % Math.max(b.pool.length, 1); runFromPool(); }
 });
 
+
+/* ---------- πρόζα, σχόλιο συμβούλου ---------- */
+function storyHtml(rep) {
+  if (!rep.story || !rep.story.length) return '';
+  var by = ''; try { by = localStorage.getItem('checkup-by') || ''; } catch (e) {}
+  return '<section class="sec"><h2>Η εικόνα με λίγα λόγια</h2><p class="hint screen-only">Μπορείς να επεξεργαστείς το κείμενο πριν το τυπώσεις ή το στείλεις στον πελάτη.</p>' +
+    '<div class="story" id="story" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Κείμενο αναφοράς, επεξεργάσιμο">' + rep.story.map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('') + '</div>' +
+    '<div class="advisor screen-only"><label class="f" for="adv-by">Ετοιμάστηκε από</label><input type="text" id="adv-by" value="' + esc(by) + '" placeholder="π.χ. AR Akron Services">' +
+    '<label class="f" for="adv-note">Σχόλιο συμβούλου</label><textarea id="adv-note" placeholder="Πρόσθεσε τα δικά σου σχόλια και προτάσεις για τον πελάτη"></textarea></div>' +
+    '<div class="print-only" id="adv-print"></div></section>';
+}
+function syncAdvisor() {
+  var by = $('#adv-by'), note = $('#adv-note'), pr = $('#adv-print'); if (!pr) return;
+  var b = by ? by.value.trim() : '', n = note ? note.value.trim() : '';
+  pr.innerHTML = (n ? '<p><b>Σχόλιο συμβούλου:</b> ' + esc(n).replace(/\n/g, '<br>') + '</p>' : '') + (b ? '<p><b>Ετοιμάστηκε από:</b> ' + esc(b) + '</p>' : '');
+  try { if (by) localStorage.setItem('checkup-by', by.value); } catch (e) {}
+}
+document.addEventListener('input', function (e) { if (e.target && (e.target.id === 'adv-by' || e.target.id === 'adv-note')) syncAdvisor(); });
+
 /* ---------- εμφάνιση αναφοράς ---------- */
 function view(name) { $('#view-input').hidden = name !== 'input'; $('#view-report').hidden = name !== 'report'; window.scrollTo(0, 0); }
 $('#btn-back').addEventListener('click', function () { view('input'); });
@@ -584,14 +611,14 @@ function itemHtml(i, open) {
   var ev = (i.evidence || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
   var gain = i.status === 'pass' ? '' : '<span class="gain">+' + i.gain + ' πόντοι</span>';
   return '<details class="item ' + i.status + '"' + (open ? ' open' : '') + '><summary><span class="ic" aria-hidden="true">' + IC[i.status] + '</span><span class="nm">' + esc(i.name) + '</span>' + gain + '</summary><div class="body">' +
-    (ev ? '<ul>' + ev + '</ul>' : '') + '<p><span class="lab">Γιατί μετράει: </span>' + esc(i.why) + '</p>' +
+    (ev ? '<ul>' + ev + '</ul>' : '') + (i.status !== 'pass' && i.conseq ? '<p><span class="lab">Τι κινδυνεύεις: </span>' + esc(i.conseq) + '</p>' : '<p><span class="lab">Γιατί μετράει: </span>' + esc(i.why) + '</p>') +
     (i.status === 'pass' ? '' : '<p class="fixline"><span class="lab">Τι να κάνεις: </span>' + esc(i.fix) + '</p>') + '</div></details>';
 }
 function label(rep) { return rep.meta.brand || rep.meta.host || 'Site'; }
 function headHtml(rep) {
   return '<div class="head"><div class="score" aria-label="Συνολικός βαθμός ' + rep.score + ' στα 100">' + rep.score + '<small>/100</small></div><div>' +
     '<div class="site-name">' + esc(label(rep)) + '</div>' + (rep.meta.url ? '<div class="site-url">' + esc(rep.meta.url) + '</div>' : '') +
-    '<span class="pill ' + rep.band.id + '">' + esc(rep.band.label) + '</span><p class="summary">' + esc(rep.summary) + '</p></div></div>';
+    '<span class="pill ' + rep.band.id + '">' + esc(rep.band.label) + '</span>' + ((rep.story && rep.story.length) ? '' : '<p class="summary">' + esc(rep.summary) + '</p>') + '</div></div>';
 }
 function catsHtml(rep) {
   return '<div class="cats">' + rep.cats.map(function (c) { var b = bandOf(c.score); return '<div class="cat"><b><span>' + esc(c.name) + '</span><span>' + c.score + '</span></b>' + meter(c.score, b) + '</div>'; }).join('') + '</div>';
@@ -604,7 +631,7 @@ function gbpHtml(g) {
 }
 function showReport() {
   var rep = state.report, h = '';
-  h += headHtml(rep) + (rep.cats.length ? catsHtml(rep) : '') + speedSlot(rep, 'speed-a', '') + benchSlot(rep);
+  h += headHtml(rep) + (rep.cats.length ? catsHtml(rep) : '') + storyHtml(rep) + speedSlot(rep, 'speed-a', '') + benchSlot(rep);
   if (rep.positives.length || rep.negatives.length) {
     h += '<div class="split"><div class="col"><h2>Τι δουλεύει <span class="badge">' + rep.positives.length + '</span></h2><div class="items">' +
       (rep.positives.map(function (i, n) { return itemHtml(i, false); }).join('') || '<p class="hint">Δεν βρέθηκε κάτι που να πληροί πλήρως τους ελέγχους.</p>') + '</div></div>' +
@@ -621,11 +648,11 @@ function showReport() {
   }
   h += gbpHtml(rep.gbp);
   if (rep.pages.length > 1) {
-    h += '<section class="sec"><h2>Σελίδες που ελέγχθηκαν</h2><div class="tbl"><table><thead><tr><th>Διεύθυνση</th><th>Τίτλος</th><th>Λέξεις</th><th>H1</th><th>Περιγραφή</th></tr></thead><tbody>' +
-      rep.pages.map(function (p) { var path = p.url; try { path = new URL(p.url).pathname || '/'; } catch (e) {} return '<tr><td class="mono">' + esc(path) + '</td><td>' + esc(p.title || '—') + '</td><td>' + p.words + '</td><td>' + p.h1 + '</td><td>' + (p.descLen ? p.descLen + ' χαρ.' : '—') + '</td></tr>'; }).join('') + '</tbody></table></div></section>';
+    h += '<section class="sec"><h2>Σελίδες που ελέγχθηκαν</h2><div class="tbl"><table><thead><tr><th>Διεύθυνση</th><th>Τίτλος</th><th>Λέξεις</th><th>Παρατηρήσεις</th></tr></thead><tbody>' +
+      rep.pages.map(function (p) { var path = p.url; try { path = new URL(p.url).pathname || '/'; } catch (e) {} return '<tr><td class="mono">' + esc(path) + '</td><td>' + esc(p.title || '—') + '</td><td>' + p.words + '</td><td>' + ((p.notes && p.notes.length) ? '<ul class="pn">' + p.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '<span class="hint">Χωρίς παρατηρήσεις</span>') + '</td></tr>'; }).join('') + '</tbody></table></div></section>';
   }
   h += limitsHtml(rep);
-  $('#report').innerHTML = h; view('report'); state.mode2 = 'report'; state.bench = null; startSpeed('speed-a', ''); startBench(rep);
+  $('#report').innerHTML = h; view('report'); state.mode2 = 'report'; state.bench = null; syncAdvisor(); startSpeed('speed-a', ''); startBench(rep);
   $('#live').textContent = 'Το check-up ολοκληρώθηκε. Βαθμός ' + rep.score + ' στα 100.';
 }
 function limitsHtml(rep) {
@@ -669,9 +696,15 @@ function showCompare() {
 function reportText(rep) {
   var L = [];
   L.push('CHECK-UP: ' + label(rep) + (rep.meta.url ? ' (' + rep.meta.url + ')' : ''));
-  L.push('Βαθμός: ' + rep.score + '/100 – ' + rep.band.label); L.push(rep.summary); L.push('');
+  var st = $('#story'), story = st ? Array.prototype.map.call(st.querySelectorAll('p'), function (p) { return p.textContent; }) : (rep.story || []);
+  L.push('Βαθμός: ' + rep.score + '/100 – ' + rep.band.label); L.push('');
+  story.forEach(function (x) { L.push(x); L.push(''); });
+  var nt = $('#adv-note') && $('#adv-note').value.trim(); if (nt) { L.push('ΣΧΟΛΙΟ ΣΥΜΒΟΥΛΟΥ'); L.push(nt); L.push(''); }
   L.push('ΤΙ ΔΟΥΛΕΥΕΙ'); rep.positives.forEach(function (i) { L.push('+ ' + i.name + ': ' + i.evidence.join(' ')); });
-  L.push(''); L.push('ΤΙ ΧΡΕΙΑΖΕΤΑΙ ΔΟΥΛΕΙΑ'); rep.negatives.forEach(function (i) { L.push('- ' + i.name + ' (+' + i.gain + ' πόντοι): ' + i.evidence.join(' ') + ' → ' + i.fix); });
+  L.push(''); L.push('ΤΙ ΧΡΕΙΑΖΕΤΑΙ ΔΟΥΛΕΙΑ'); rep.negatives.forEach(function (i) { L.push('- ' + i.name + ' (+' + i.gain + ' πόντοι): ' + i.evidence.join(' ') + (i.conseq ? ' Τι κινδυνεύεις: ' + i.conseq : '') + ' → ' + i.fix); });
+  var pn = (rep.pages || []).filter(function (p) { return p.notes && p.notes.length; });
+  if (pn.length) { L.push(''); L.push('ΣΕΛΙΔΕΣ'); pn.forEach(function (p) { var path = p.url; try { path = new URL(p.url).pathname || '/'; } catch (e) {} L.push(path + ': ' + p.notes.join(' ')); }); }
+  var by = $('#adv-by') && $('#adv-by').value.trim(); if (by) { L.push(''); L.push('Ετοιμάστηκε από: ' + by); }
   return L.join('\n');
 }
 $('#btn-copy').addEventListener('click', function () {

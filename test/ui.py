@@ -11,6 +11,8 @@ async def main():
         # sample single
         await pg.click('#sample'); await pg.wait_for_timeout(300)
         print('score:', await pg.inner_text('.score'), '| neg badges:', await pg.inner_text('.col.neg h2'))
+        print('story paras:', await pg.locator('#story p').count(), '| editable:', await pg.get_attribute('#story','contenteditable'), '| conseq lines:', await pg.locator('text=Τι κινδυνεύεις').count())
+        await pg.fill('#adv-by','AR Akron Services'); await pg.fill('#adv-note','Προτείνω να ξεκινήσουμε από τον τίτλο.'); print('print block:', (await pg.inner_text('#adv-print', timeout=2000)) if False else await pg.evaluate("document.getElementById('adv-print').textContent"))
         print('bench cards:', await pg.locator('#bench .b3 .card').count(), '| sample tag:', await pg.locator('#bench .sample-tag').count())
         await pg.screenshot(path='/home/claude/checkup/test/s-report.png', full_page=True)
         # dark
